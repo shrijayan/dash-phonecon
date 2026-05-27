@@ -17,6 +17,11 @@ interface CallEventListener {
 class PhoneStateReceiver(private val listener: CallEventListener) : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
+        runCatching { dispatch(context, intent) }
+            .onFailure { Log.e(TAG, "onReceive failed: ${it.message}", it) }
+    }
+
+    private fun dispatch(context: Context, intent: Intent) {
         if (intent.action != TelephonyManager.ACTION_PHONE_STATE_CHANGED) return
 
         val state = intent.getStringExtra(TelephonyManager.EXTRA_STATE) ?: return

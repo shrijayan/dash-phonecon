@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
@@ -45,8 +46,12 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
             return START_NOT_STICKY
         }
 
-        val macIp = intent?.getStringExtra(EXTRA_MAC_IP)
-            ?: throw IllegalStateException("CallService started without mac_ip — cannot connect")
+        val macIp = intent?.getStringExtra(EXTRA_MAC_IP) ?: loadSavedIp()
+        if (macIp.isNullOrEmpty()) {
+            Log.w(TAG, "No mac_ip available — stopping service")
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
         startForeground(NOTIFICATION_ID, buildNotification())
         registerReceiver(phoneReceiver, IntentFilter(TelephonyManager.ACTION_PHONE_STATE_CHANGED))
@@ -87,10 +92,11 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
         val type = json.optString(MessageType.FIELD_TYPE)
         Log.d(TAG, "Received command: $type")
 
+        val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
         when (type) {
             MessageType.PONG -> wsClient.resetPingTimer()
-            MessageType.ANSWER -> answerCall()
-            MessageType.REJECT, MessageType.HANGUP -> endCall()
+            MessageType.ANSWER -> mainHandler.post { answerCall() }
+            MessageType.REJECT, MessageType.HANGUP -> mainHandler.post { endCall() }
             else -> Log.w(TAG, "Unknown command type: $type")
         }
     }
@@ -104,21 +110,21 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
             .put(MessageType.FIELD_NUMBER, number)
             .put(MessageType.FIELD_NAME, displayName)
             .toString()
-        wsClient.send(payload)
+        runCatching { wsClient.send(payload) }.onFailure { Log.e(TAG, "send failed: ${it.message}", it) }
     }
 
     override fun onCallActive() {
         val payload = JSONObject()
             .put(MessageType.FIELD_TYPE, MessageType.CALL_ACTIVE)
             .toString()
-        wsClient.send(payload)
+        runCatching { wsClient.send(payload) }.onFailure { Log.e(TAG, "send failed: ${it.message}", it) }
     }
 
     override fun onCallEnded() {
         val payload = JSONObject()
             .put(MessageType.FIELD_TYPE, MessageType.CALL_ENDED)
             .toString()
-        wsClient.send(payload)
+        runCatching { wsClient.send(payload) }.onFailure { Log.e(TAG, "send failed: ${it.message}", it) }
     }
 
     // --- Call control ---
@@ -185,8 +191,13 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
         localBroadcast.sendBroadcast(intent)
     }
 
+    private fun loadSavedIp(): String? =
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(PREF_MAC_IP, null)
+
     companion object {
         const val EXTRA_MAC_IP = "mac_ip"
         const val ACTION_STOP_SERVICE = "com.dash.phonecon.STOP_SERVICE"
+        private const val PREFS_NAME = "dash_phonecon_prefs"
+        private const val PREF_MAC_IP = "mac_ip"
     }
 }

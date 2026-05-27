@@ -1,0 +1,19 @@
+# Swift build artifacts
+.build/
+build/
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+*.xccheckout
+*.xcscmblueprint
+
+# Xcode archives & exports
+*.ipa
+*.dSYM.zip
+*.dSYM

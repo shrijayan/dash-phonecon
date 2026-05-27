@@ -1,0 +1,17 @@
+# Build output
+.gradle/
+app/build/
+build/
+
+# Local config (contains SDK path)
+local.properties
+gradle.properties
+
+# Android Studio
+*.iml
+.idea/
+captures/
+
+# Keystore
+*.jks
+*.keystore

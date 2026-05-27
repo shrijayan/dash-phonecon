@@ -41,11 +41,11 @@ private struct MenuBarIconView: View {
     }
 }
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let server = CallServer()
     let viewModel = CallStateViewModel()
 
-    @MainActor
     func applicationDidFinishLaunching(_ notification: Notification) {
         server.start(viewModel: viewModel)
     }

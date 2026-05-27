@@ -26,6 +26,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var ipEditText: EditText
     private lateinit var toggleButton: Button
     private lateinit var statusText: TextView
+    private lateinit var crashLogButton: Button
+    private lateinit var crashLogText: TextView
     private lateinit var localBroadcast: LocalBroadcastManager
 
     private var serviceRunning = false
@@ -45,6 +47,8 @@ class MainActivity : AppCompatActivity() {
         ipEditText = findViewById(R.id.editTextMacIp)
         toggleButton = findViewById(R.id.buttonToggleService)
         statusText = findViewById(R.id.textViewStatus)
+        crashLogButton = findViewById(R.id.buttonViewCrashLog)
+        crashLogText = findViewById(R.id.textViewCrashLog)
         localBroadcast = LocalBroadcastManager.getInstance(this)
 
         loadSavedIp()
@@ -53,6 +57,22 @@ class MainActivity : AppCompatActivity() {
         toggleButton.setOnClickListener {
             if (serviceRunning) stopService() else startServiceIfValid()
         }
+
+        crashLogButton.setOnClickListener { showCrashLog() }
+        crashLogButton.setOnLongClickListener { clearCrashLog(); true }
+    }
+
+    private fun crashLogFile() = java.io.File(getExternalFilesDir(null), "dashphone_crash.log")
+
+    private fun showCrashLog() {
+        val logFile = crashLogFile()
+        crashLogText.text = if (logFile.exists()) logFile.readText() else "No crash log yet."
+    }
+
+    private fun clearCrashLog() {
+        crashLogFile().delete()
+        crashLogText.text = "Cleared."
+        Toast.makeText(this, "Crash log cleared", Toast.LENGTH_SHORT).show()
     }
 
     override fun onResume() {
@@ -128,6 +148,9 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.READ_CONTACTS,
             Manifest.permission.ANSWER_PHONE_CALLS
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            required.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
 
         val missing = required.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
