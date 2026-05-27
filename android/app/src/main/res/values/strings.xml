@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DashPhoneCon</string>
+
+    <!-- Main screen labels -->
+    <string name="label_mac_ip">Mac IP Address</string>
+    <string name="hint_mac_ip">192.168.1.x</string>
+    <string name="button_start">Start</string>
+    <string name="button_stop">Stop</string>
+
+    <!-- Status strings -->
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_reconnecting">Reconnecting…</string>
+
+    <!-- Validation -->
+    <string name="error_ip_required">Please enter the Mac IP address</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">DashPhone Service</string>
+    <string name="notification_title">DashPhone active</string>
+    <string name="notification_text">Listening for calls</string>
+    <string name="action_stop">Stop</string>
+</resources>
