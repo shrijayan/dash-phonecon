@@ -146,6 +146,7 @@ class MainActivity : AppCompatActivity() {
         val required = mutableListOf(
             Manifest.permission.READ_PHONE_STATE,
             Manifest.permission.READ_CONTACTS,
+            Manifest.permission.READ_CALL_LOG,
             Manifest.permission.ANSWER_PHONE_CALLS
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
