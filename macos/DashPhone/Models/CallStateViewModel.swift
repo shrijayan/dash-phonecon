@@ -12,10 +12,15 @@ final class CallStateViewModel: ObservableObject {
     @Published var callState: CallState = .idle
 
     private var server: CallServer?
+    private var hfpManager: HFPManager?
     private var popupWindow: CallPopupWindow?
 
     func attach(server: CallServer) {
         self.server = server
+    }
+
+    func attach(hfpManager: HFPManager) {
+        self.hfpManager = hfpManager
     }
 
     func handleEvent(_ json: [String: Any]) {
@@ -32,10 +37,12 @@ final class CallStateViewModel: ObservableObject {
         case .callActive:
             callState = .active(startTime: Date())
             closePopup()
+            hfpManager?.openAudio()
 
         case .callEnded:
             callState = .idle
             closePopup()
+            hfpManager?.closeAudio()
 
         case .ping:
             sendCommand(.pong)

@@ -22,5 +22,7 @@
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>DashPhone uses Bluetooth to route call audio through your Mac speakers and microphone.</string>
 </dict>
 </plist>

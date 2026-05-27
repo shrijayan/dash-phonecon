@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioManager
 import android.os.Build
 import android.os.IBinder
 import android.telecom.TelecomManager
@@ -114,6 +115,7 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
     }
 
     override fun onCallActive() {
+        routeAudioToMac()
         val payload = JSONObject()
             .put(MessageType.FIELD_TYPE, MessageType.CALL_ACTIVE)
             .toString()
@@ -121,10 +123,25 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
     }
 
     override fun onCallEnded() {
+        stopBluetoothAudio()
         val payload = JSONObject()
             .put(MessageType.FIELD_TYPE, MessageType.CALL_ENDED)
             .toString()
         runCatching { wsClient.send(payload) }.onFailure { Log.e(TAG, "send failed: ${it.message}", it) }
+    }
+
+    // --- Bluetooth audio routing ---
+
+    private fun routeAudioToMac() {
+        val audioManager = getSystemService(AudioManager::class.java)
+        Log.d(TAG, "BT SCO available off-call: ${audioManager.isBluetoothScoAvailableOffCall}")
+        audioManager.startBluetoothSco()
+        Log.d(TAG, "BT SCO started")
+    }
+
+    private fun stopBluetoothAudio() {
+        getSystemService(AudioManager::class.java).stopBluetoothSco()
+        Log.d(TAG, "BT SCO stopped")
     }
 
     // --- Call control ---

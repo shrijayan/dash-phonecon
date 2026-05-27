@@ -45,8 +45,11 @@ private struct MenuBarIconView: View {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let server = CallServer()
     let viewModel = CallStateViewModel()
+    let hfpManager = HFPManager()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         server.start(viewModel: viewModel)
+        viewModel.attach(hfpManager: hfpManager)
+        hfpManager.start()
     }
 }
