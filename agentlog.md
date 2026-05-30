@@ -91,6 +91,9 @@ New approach: remove IOBluetoothHandsFreeDevice entirely. Mac only does CoreAudi
 Prerequisite the user must do manually: Settings → Connections → Bluetooth → tap ⚙️ next to CZ2 → enable "Phone calls" toggle. This changes Android's connection policy from HEADSET=-1 (UNKNOWN) to HEADSET=100 (ALLOWED), which causes Android to auto-connect HFP.
 Rebuilt Mac app — build clean.
 
+## 2026-05-30 — README: added FAQ explaining why AirDroid can do call audio but we cannot
+Investigated how AirDroid routes call audio. Finding: AirDroid uses OEM partnerships (primarily Samsung) to get `CAPTURE_AUDIO_OUTPUT` — a system-only permission that cannot be granted by users on stock Android. This permission is required to capture `VOICE_CALL` / `VOICE_DOWNLINK` audio sources. AirDroid's own docs say "depends on phone" because on stock devices with a sideloaded APK they hit the same wall. A SIP bridge approach faces the same Android permission blocker — the transport layer is irrelevant; the bottleneck is always `CAPTURE_AUDIO_OUTPUT`. Added FAQ section to README documenting this clearly so future contributors understand the constraint.
+
 ## 2026-05-27 — Fix: caller showing "Unknown" instead of number/name
 Root cause: `EXTRA_INCOMING_NUMBER` from `ACTION_PHONE_STATE_CHANGED` requires `READ_CALL_LOG` on Android 9+ in addition to `READ_PHONE_STATE`. Without it the number is null, so contact lookup never runs and "Unknown" is displayed.
 Fix: Added `READ_CALL_LOG` permission to AndroidManifest.xml and to the runtime permission request list in MainActivity.kt. After reinstalling the app, Android will prompt for Call Log permission — grant it.

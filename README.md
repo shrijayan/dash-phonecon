@@ -189,6 +189,40 @@ Apple must provide a public API for HFP audio in macOS 26. File feedback:
 
 ---
 
+## FAQ: "But AirDroid / KDE Connect can do call audio — why can't this?"
+
+**Short answer: AirDroid works on specific phones only, because of OEM deals — not because they found a trick we missed.**
+
+### The Android permission wall
+
+To capture both sides of a phone call (your voice + the caller's voice) as audio data, an app needs one of these `AudioRecord` sources:
+
+| Source | What it captures | Permission required |
+|---|---|---|
+| `VOICE_CALL` | Both sides | `CAPTURE_AUDIO_OUTPUT` — system/OEM only |
+| `VOICE_DOWNLINK` | Caller's voice only | `CAPTURE_AUDIO_OUTPUT` — system/OEM only |
+| `VOICE_COMMUNICATION` | Your mic only | `RECORD_AUDIO` — any app |
+
+`CAPTURE_AUDIO_OUTPUT` **cannot be granted by the user**. It is only available to APKs pre-installed on the device or signed with the OEM's platform key. No sideloaded app can get it on stock Android.
+
+### How AirDroid does it
+
+AirDroid has **OEM partnerships** (primarily Samsung). On supported devices, their APK ships pre-installed or is signed with elevated privileges that unlock `VOICE_CALL` audio capture. That is why their own documentation says *"call handling support depends on phone"* — on a stock Android device with a user-installed APK, they hit the same wall.
+
+### What about a SIP bridge?
+
+A SIP bridge routes audio over WiFi instead of Bluetooth, which bypasses the macOS 26 IOBluetooth blocker. But it does not bypass the Android audio capture restriction — you still need `CAPTURE_AUDIO_OUTPUT` to capture the caller's voice. Both approaches hit the same Android permission wall.
+
+### What can be done today (without OEM access)
+
+The only option on a stock device is the **speakerphone workaround**: force the call to speakerphone on `CALL_ACTIVE`, then use `AudioRecord` with `VOICE_COMMUNICATION` (mic source). The mic acoustically picks up both voices from the speaker. It works on any phone but the audio quality is degraded.
+
+### Unblocking path
+
+Either Google adds a user-grantable permission for call audio capture, or the device is rooted. Neither is in scope for this project.
+
+---
+
 ## Devices Tested
 - **Android**: Samsung Galaxy A31 (SM-A315F), Android 12 (API 31)
 - **Mac**: macOS 26.5 (25F71), Darwin 25.5.0
