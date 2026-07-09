@@ -25,6 +25,7 @@ class TrayIcon(QSystemTrayIcon):
         on_hangup: Callable[[], None],
         on_quit: Callable[[], None],
         device_label: str,
+        on_open_log: Callable[[], None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -42,6 +43,10 @@ class TrayIcon(QSystemTrayIcon):
         self._hangup_action.setVisible(False)
         self._hangup_action.triggered.connect(lambda: on_hangup())
 
+        self._open_log_action = QAction("Open Log File")
+        if on_open_log is not None:
+            self._open_log_action.triggered.connect(lambda: on_open_log())
+
         quit_action = QAction(f"Quit {APP_DISPLAY_NAME}")
         quit_action.triggered.connect(lambda: on_quit())
 
@@ -51,6 +56,8 @@ class TrayIcon(QSystemTrayIcon):
         menu.addSeparator()
         menu.addAction(self._timer_action)
         menu.addAction(self._hangup_action)
+        menu.addSeparator()
+        menu.addAction(self._open_log_action)
         menu.addSeparator()
         menu.addAction(quit_action)
         self.setContextMenu(menu)

@@ -107,6 +107,29 @@ class TrayIconBindErrorTests(unittest.TestCase):
         tray.set_device_label("myhost: no network connection")
         self.assertEqual(tray._device_action.text(), "myhost: no network connection")
 
+    def test_open_log_action_exists_and_is_enabled(self) -> None:
+        tray = _make_tray()
+        self.assertEqual(tray._open_log_action.text(), "Open Log File")
+        self.assertTrue(tray._open_log_action.isEnabled())
+
+    def test_open_log_action_invokes_callback(self) -> None:
+        calls = []
+        tray = TrayIcon(
+            on_hangup=lambda: None,
+            on_quit=lambda: None,
+            device_label="This device: 192.168.1.5:8765",
+            on_open_log=lambda: calls.append(True),
+        )
+        tray._open_log_action.trigger()
+        self.assertEqual(calls, [True])
+
+    def test_open_log_action_safe_without_callback(self) -> None:
+        tray = _make_tray()
+        try:
+            tray._open_log_action.trigger()
+        except Exception as error:  # pragma: no cover - failure path
+            self.fail(f"triggering with no on_open_log raised unexpectedly: {error}")
+
 
 if __name__ == "__main__":
     unittest.main()
