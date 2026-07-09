@@ -90,3 +90,45 @@ log alone.
 - Risk log: none — this feature has full unit test coverage and needed
   no manual-testing carve-out (unlike an Android/macOS-only change would
   have).
+
+## PM cycle 2026-07-10 ~03:20 IST
+
+- Synced to `origin/overnight/auto-research` at `5da298c` (bind_failed
+  now in Shipped, no new Abandoned entries). No `.overnight/STOP`
+  present. Re-read `GUARDRAILS.md`, `AGENTS.md`, `README.md`, `PLAN.md`,
+  all of `linux/src/dashphone/` (app.py, state/, ui/, network/,
+  bluetooth/, media_ducker.py, logging_setup.py, single_instance.py)
+  and `linux/tests/` end to end, plus checked `linux/README.md`'s
+  Bluetooth troubleshooting section, specifically to avoid re-proposing
+  anything already in Proposed/Shipped/Abandoned.
+- Added 3 new items to the top of `BACKLOG.md`'s Proposed section,
+  ordered highest-value-first:
+  (1) missed-call detection + notification — grep-confirmed
+  `CallStateController.handle_event`'s `CALL_ENDED` branch has no
+  RINGING-vs-ACTIVE distinction before going idle, and `self._state`
+  still holds the prior phase at that point so the check is a one-liner;
+  new `call_missed` signal, testable purely in `test_call_state.py`
+  with no Qt needed for the logic itself;
+  (2) a "Decline" tray action while ringing — today `_hangup_action` is
+  the only always-available in-tray call action (only visible while
+  ACTIVE), so a user whose popup is missed/obscured has no tray-only way
+  to decline, mirrors the existing `on_hangup`/`_hangup_action`
+  visibility-toggle pattern exactly, so both the code shape and the test
+  shape (`test_tray_icon.py`) are already proven out by that precedent;
+  (3) wire `HfpManager.status_changed` to the tray — grep-confirmed
+  (same technique used to find last cycle's `bind_failed` gap) that this
+  signal is defined and emitted with useful human-readable Bluetooth
+  routing status strings in `hfp_manager.py` but literally nothing
+  `.connect(`s to it anywhere in the tree, an identical shape of
+  silent-failure gap to the one just shipped, this time for the
+  Bluetooth HFP "Known blocker" troubleshooting flow `linux/README.md`
+  already documents. All three name specific existing
+  classes/methods/files, follow patterns already validated in the
+  existing test suite (33 tests green, confirmed by re-running
+  `QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover
+  -s tests -t . -v` from `linux/` before proposing), and look like
+  ~15-30 min single-cycle scope. Renumbered/cross-referenced the
+  remaining 7 older still-open Proposed items (previously 1-7, now 4-10)
+  so internal item-number references stay accurate.
+- No code under `android/`, `linux/src`, `macos/`, or `website/` was
+  touched this cycle — only `.overnight/BACKLOG.md` and this file.
