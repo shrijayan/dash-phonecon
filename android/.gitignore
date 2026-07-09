@@ -3,9 +3,8 @@
 app/build/
 build/
 
-# Local config (contains SDK path)
+# Local config (contains SDK path - machine-specific)
 local.properties
-gradle.properties
 
 # Android Studio
 *.iml
