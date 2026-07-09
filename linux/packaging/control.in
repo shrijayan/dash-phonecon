@@ -1,0 +1,23 @@
+Package: dash-phonecon
+Version: __VERSION__
+Section: net
+Priority: optional
+Architecture: all
+Depends: python3 (>= 3.10), python3-pyside6.qtcore, python3-pyside6.qtgui, python3-pyside6.qtwidgets, python3-websockets
+Recommends: python3-dbus, pulseaudio-utils, bluez, libspa-0.2-bluetooth
+Maintainer: Dash PhoneCon Project <dash-phonecon@localhost>
+Homepage: https://github.com/shrijayan/dash-phonecon
+Description: Answer and control Android phone calls from Ubuntu
+ Dash Phone Con shows a popup when your Android phone rings, with the
+ caller's name and number, and lets you answer, decline, or hang up
+ without touching your phone - a system tray icon shows connection and
+ call status at a glance.
+ .
+ It also makes a best-effort attempt to route call audio through this
+ computer's speakers and microphone over Bluetooth Hands-Free once a call
+ is active (the packages under Recommends enable this; the core features
+ above work over WiFi alone even without them).
+ .
+ Requires the companion Android app (see the project's android/
+ directory) installed on your phone and pointed at this computer's IP
+ address - both must be running for this to work.

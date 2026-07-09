@@ -1,0 +1,11 @@
+# Build output
+dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Editor
+.idea/

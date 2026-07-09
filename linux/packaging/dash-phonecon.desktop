@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Dash Phone Con
+Comment=Answer and control Android phone calls from this computer
+Exec=dash-phonecon
+Icon=dash-phonecon
+Terminal=false
+Categories=Network;Telephony;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

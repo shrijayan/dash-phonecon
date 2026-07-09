@@ -1,27 +1,33 @@
 # dash-phonecon
 
-Receive and control Android phone calls from your Mac. When your phone rings, a popup appears on your Mac with the caller's name and number. You can answer, decline, or hang up from the Mac. Call audio routing through Mac speakers/mic (Phase 4) is blocked by a macOS 26 API regression — see details below.
+Receive and control Android phone calls from your computer. When your phone rings, a popup appears with the caller's name and number. You can answer, decline, or hang up without touching your phone. Two desktop clients exist, both speaking the exact same WiFi protocol to the same Android app:
+
+- **macOS** (`macos/`) — menu bar app. Call audio routing through Mac speakers/mic (Phase 4) is blocked by a macOS 26 API regression — see details below.
+- **Ubuntu** (`linux/`) — system tray app, installable as a `.deb`. Same popup/answer/decline/hang-up features, plus a best-effort attempt at call audio routing over Bluetooth (Linux's PipeWire is not blocked the way macOS 26 is) — see `linux/README.md`.
+
+The Android app needs **no changes** to work with either — just type whichever computer's IP address into it.
 
 ---
 
-## What Works (Phases 1–3 — Fully Functional)
+## What Works (Phases 1–3 — Fully Functional, both platforms)
 
 | Feature | Status |
 |---|---|
-| Incoming call popup on Mac with caller name + number | ✅ |
-| Answer call from Mac | ✅ |
-| Reject incoming call from Mac | ✅ |
-| Hang up active call from Mac | ✅ |
-| Active call timer in Mac menu bar | ✅ |
-| WebSocket auto-reconnect with exponential backoff | ✅ |
+| Incoming call popup with caller name + number | ✅ macOS + Ubuntu |
+| Answer call from computer | ✅ macOS + Ubuntu |
+| Reject incoming call from computer | ✅ macOS + Ubuntu |
+| Hang up active call from computer | ✅ macOS + Ubuntu |
+| Active call timer in menu bar / tray | ✅ macOS + Ubuntu |
+| WebSocket auto-reconnect with exponential backoff | ✅ (Android side, shared) |
 | Auto-start Android service on phone reboot | ✅ |
-| Connection status in Mac menu bar (grey/green) | ✅ |
+| Connection status indicator | ✅ macOS + Ubuntu |
 
-## What Does NOT Work
+## Call Audio Routing (Phase 4) — platform-dependent
 
-| Feature | Status | Reason |
+| Platform | Status | Reason |
 |---|---|---|
-| Call audio through Mac speakers/mic (HFP) | ❌ Blocked | macOS 26 removed the IOBluetooth framework binary — no public API exists for third-party HFP |
+| macOS | ❌ Blocked | macOS 26 removed the IOBluetooth framework binary — no public API exists for third-party HFP |
+| Ubuntu | ⚠️ Blocked (for now) | Confirmed on real hardware: pairing + Android's connection policy both work correctly (further than macOS gets), but PipeWire/BlueZ fails to complete the actual Hands-Free transport connection with a reproducible error. Not a hard OS-level wall like macOS - looks like a fixable bug/version issue. See `linux/README.md`'s "Known blocker" section for the exact error and next steps. |
 
 ---
 
@@ -49,7 +55,9 @@ Android Phone (CZ1)                    MacBook (CZ2)
                   HFP audio: BLOCKED (see below)
 ```
 
-**Protocol:** JSON over WebSocket. Both sides share identical message type constants.
+The Ubuntu client (`linux/`) uses the identical architecture and wire protocol — just swap "MacBook (CZ2)" above for "Ubuntu PC", and "BLOCKED" for "best-effort" (see `linux/README.md`).
+
+**Protocol:** JSON over WebSocket. All sides share identical message type constants — currently duplicated by hand in `android/.../MessageType.kt`, `macos/DashPhone/Models/MessageType.swift`, and `linux/src/dashphone/protocol/message_type.py`. If you change one, change all three.
 
 ---
 
@@ -57,7 +65,8 @@ Android Phone (CZ1)                    MacBook (CZ2)
 
 ### Prerequisites
 - Java 17, ADB, Android SDK (build-tools + platform API 31)
-- Swift 6, Xcode Command Line Tools (macOS 26)
+- Swift 6, Xcode Command Line Tools (macOS 26) — for the macOS client
+- Python 3.10+ (Ubuntu 24.04+) — for the Ubuntu client
 
 ### Android
 ```bash
@@ -73,10 +82,18 @@ cd macos
 open build/DashPhone.app
 ```
 
+### Ubuntu
+```bash
+cd linux
+./build-deb.sh
+sudo apt install ./dist/dash-phonecon_*_all.deb
+```
+See `linux/README.md` for running from source without packaging, and for Bluetooth audio setup/troubleshooting.
+
 ### First-time setup
 1. Make sure both devices are on the same local network (or connected via Tailscale)
-2. Open the Android app → enter your Mac's local IP address → tap Start
-3. The Mac menu bar icon turns green when connected
+2. Open the Android app → enter your computer's local IP address → tap Start
+3. The menu bar (Mac) or tray (Ubuntu) icon turns green when connected
 
 ---
 
@@ -101,8 +118,16 @@ dash-phonecon/
 │       ├── Views/CallPopupView.swift    # SwiftUI incoming call card
 │       ├── Views/MenuBarView.swift      # Menu bar icon + dropdown
 │       └── Bluetooth/HFPManager.swift  # HFP audio manager (Phase 4 — blocked, see below)
-├── protocol/
-│   └── messages.md                 # JSON message spec (source of truth)
+├── linux/
+│   ├── build-deb.sh                     # assembles the installable .deb package
+│   ├── packaging/                       # Debian control file, postinst/postrm, .desktop entry
+│   └── src/dashphone/
+│       ├── app.py                       # composition root, wires everything together
+│       ├── protocol/message_type.py     # shared message-type vocabulary (source of truth, Ubuntu side)
+│       ├── state/                       # CallState + CallStateController (pure logic, no Qt/network)
+│       ├── network/call_server.py       # asyncio WebSocket server on port 8765
+│       ├── bluetooth/                   # best-effort Bluetooth Hands-Free audio routing (Phase 4)
+│       └── ui/                          # tray icon, incoming-call popup
 ├── agentlog.md                     # Chronological change log for agents continuing this work
 └── README.md                       # This file
 ```
@@ -221,13 +246,19 @@ The only option on a stock device is the **speakerphone workaround**: force the 
 
 Either Google adds a user-grantable permission for call audio capture, or the device is rooted. Neither is in scope for this project.
 
+### Why doesn't this wall also block Ubuntu's Bluetooth approach?
+
+It's a different mechanism entirely. The wall above applies to an **app** trying to grab call audio in software via Android's `AudioRecord` API. Bluetooth HFP is not that — it's native OS/Bluetooth-stack behaviour, the same path a real Bluetooth headset or car kit uses, and it requires no special Android app permission at all. That's why the Ubuntu client's approach (`linux/bluetooth/`) is a legitimately different, unblocked path rather than a workaround for this same wall — see `linux/README.md` for how it depends instead on your phone's Bluetooth stack allowing the "Phone calls" HFP toggle.
+
 ---
 
 ## Devices Tested
 - **Android**: Samsung Galaxy A31 (SM-A315F), Android 12 (API 31)
 - **Mac**: macOS 26.5 (25F71), Darwin 25.5.0
+- **Ubuntu**: 26.04 LTS "Resolute Raccoon", PipeWire 1.6.2, BlueZ 5.85 — WiFi call control (Phases 1–3) verified end-to-end; Bluetooth audio routing (Phase 4) implemented and unit-tested, but not yet confirmed with a real paired phone (needs `linux/README.md`'s "Phone calls" toggle step) — see `agentlog.md` for the current state.
 
 ## Dependencies
 - **Android**: OkHttp (WebSocket client), AndroidX LocalBroadcastManager
 - **Mac**: Network.framework (NWListener WebSocket server), IOBluetooth (device discovery only), CoreAudio (device switching — ready for when HFP works)
 - No external Mac dependencies — pure Swift, builds with `swift build`
+- **Ubuntu**: PySide6 (Qt widgets/tray icon), `websockets` (asyncio WebSocket server) — both from Ubuntu's own `universe` repo, installed automatically as `.deb` dependencies. Bluetooth audio routing additionally uses `python3-dbus` (talks to BlueZ) and `pactl`/PipeWire (audio device switching), declared as `Recommends:` since the core features work without them.

@@ -1,0 +1,14 @@
+#!/usr/bin/python3
+"""Thin launcher installed to /usr/bin/dash-phonecon by the .deb package.
+
+Kept as a tiny shim on purpose: all real logic lives in the dashphone
+package (installed to /usr/lib/python3/dist-packages/), so there is
+exactly one place to read/change the app's behaviour.
+"""
+
+import sys
+
+from dashphone.app import main
+
+if __name__ == "__main__":
+    sys.exit(main())
