@@ -11,24 +11,7 @@ this file or the codebase.
 grounded in a fresh read of the current linux/ source, see state.md for
 the rationale on each)*
 
-1. **Surface `bind_failed` to the user instead of dropping it silently.**
-   `network/call_server.py` already defines and emits a `bind_failed =
-   Signal(str)` when the WebSocket port can't be bound (e.g. `OSError`
-   from `asyncio.run(self._serve())`), but grep confirms `app.py` never
-   connects to it — today that failure is logged and otherwise invisible;
-   the tray icon still shows "Not Connected" with no explanation, and a
-   user has no way to know the app never actually started listening.
-   Wire `server.bind_failed` in `app.py` to a new small handler on
-   `ui/tray_icon.py` (e.g. `TrayIcon.set_bind_error(message: str)`) that
-   swaps the status line to something like "Port 8765 unavailable" and
-   optionally fires `showMessage()` (confirmed working headless via
-   `QSystemTrayIcon.showMessage()` under `QT_QPA_PLATFORM=offscreen` —
-   verified directly this cycle). Testable directly: unit-test
-   `TrayIcon._status_label()`/whatever new state field is added the same
-   way `test_call_state.py` exercises `CallStateController` — construct a
-   `TrayIcon`, call the new method, assert the status action's text
-   changed. No real socket/bind needed for the test itself.
-2. **Desktop notification on incoming call, not just the popup.**
+1. **Desktop notification on incoming call, not just the popup.**
    `app.py`'s `on_state_changed` already calls `popup.show_call(...)` on
    `CallPhase.RINGING`, but if the popup window is obscured, on another
    workspace, or the compositor doesn't raise it reliably, there's no
@@ -43,7 +26,7 @@ the rationale on each)*
    method is invoked with the right args (mock/spy), same pattern as the
    existing state-controller tests — no real OS notification daemon
    needed for the unit test.
-3. **"Copy this device's address" tray action.** `network/local_address.py`'s
+2. **"Copy this device's address" tray action.** `network/local_address.py`'s
    `device_label()` is shown today only as a disabled/inert menu item in
    `ui/tray_icon.py` (`self._device_action = self._disabled_action(device_label)`)
    — the user must manually retype the IP:port into the Android app,
@@ -61,24 +44,24 @@ the rationale on each)*
 *(older, still-open ideas from the previous seed batch follow — kept in
 the same "Proposed" section per the format the Engineer persona expects)*
 
-4. **Reconnect banner in the call popup.** `ui/call_popup.py` /
+3. **Reconnect banner in the call popup.** `ui/call_popup.py` /
    `network/call_server.py`: when `connection_changed` emits `False`
    while a call is active, the popup currently has no visual indicator
    the phone link dropped. Add a small "Phone disconnected" banner state.
-5. **Tray icon: show device label on hover only, status in bold.**
+4. **Tray icon: show device label on hover only, status in bold.**
    `ui/tray_icon.py`'s `_status_label()` currently always shows the same
    plain menu item. Minor UX polish, small + safe to try first as a
    warm-up.
-6. **Config file for port override.** `network/call_server.py` hardcodes
+5. **Config file for port override.** `network/call_server.py` hardcodes
    `DEFAULT_PORT = 8765`. Add optional `~/.config/dash-phonecon/config.json`
    read (port override only, default unchanged) so a user with a port
    conflict isn't stuck. Additive, no protocol change.
-7. **Structured logging: log connection duration on disconnect.**
+6. **Structured logging: log connection duration on disconnect.**
    `network/call_server.py`'s `_handle_client` logs "Phone disconnected"
    with no context — add elapsed connection time to the log line using
    `logging_setup.py`'s existing logger. Small, test-friendly (can assert
    on log records).
-8. **`CallState` history / last-call summary.** `state/call_state.py` +
+7. **`CallState` history / last-call summary.** `state/call_state.py` +
    `state/call_state_controller.py`: track the last N call events
    in-memory (caller name/number, duration, timestamp) purely for the
    tray dropdown ("Last call: John Doe, 2m 14s ago") — no persistence
@@ -88,6 +71,8 @@ the same "Proposed" section per the format the Engineer persona expects)*
 
 *(engineer persona appends here, format: `- [SHA] feat: description
   (timestamp)`)*
+
+- [7490f21] feat: surface `bind_failed` to the tray icon instead of dropping it silently (2026-07-10 02:56 IST)
 
 ## Abandoned
 
