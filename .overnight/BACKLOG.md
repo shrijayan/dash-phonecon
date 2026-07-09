@@ -7,6 +7,74 @@ this file or the codebase.
 
 ## Proposed
 
+*(PM cycle 2026-07-10 ~04:05 IST added the 3 items below to the top —
+grounded in a fresh re-read of `network/call_server.py`, `__main__.py`,
+`state/call_state_controller.py`, and `linux/tests/` against the current
+BACKLOG/state after the missed-call ship; none of these duplicate the
+9 open items or either shipped feature below.)*
+
+1. **Retry binding the WebSocket port a few times before giving up.**
+   `network/call_server.py`'s `_run_event_loop` calls
+   `asyncio.run(self._serve())` once and, on `OSError` (e.g. the old
+   process's socket hasn't been released yet right after a restart —
+   a real race since `SingleInstanceLock` in `single_instance.py` uses
+   an abstract-namespace socket that's released the instant the old
+   process exits, but the *previous* WebSocket listener's TCP socket
+   can still be in `TIME_WAIT`/lingering a moment longer), immediately
+   emits `bind_failed` and gives up for the process's whole lifetime —
+   confirmed via reading `_serve()`/`start()` that nothing ever retries.
+   Add a small bounded retry loop inside `_run_event_loop` (e.g. 3
+   attempts with a short `time.sleep` backoff between them, all inside
+   the existing background thread so the Qt main thread is untouched)
+   before finally emitting `bind_failed` — purely additive, no
+   signal/API shape change, so `app.py`'s existing
+   `server.bind_failed.connect(on_bind_failed)` wiring needs no edits.
+   Testable by refactoring the retry logic into a small standalone
+   helper (e.g. `_bind_with_retries(host, port, attempts, delay) ->
+   ServerSocket-like`) that a new `linux/tests/test_call_server.py` can
+   call directly with a fake bind function that raises `OSError` N
+   times then succeeds, asserting it retries exactly `attempts` times
+   and only raises after exhausting them — no real socket or asyncio
+   event loop needed for the unit test itself.
+2. **`--verbose`/`-v` CLI flag to enable debug logging.**
+   `logging_setup.py`'s `setup_logging(verbose: bool = False)` already
+   has the parameter fully wired (sets `DEBUG` vs `INFO` on the root
+   logger) but `__main__.py`/`app.py`'s `main()` never exposes it —
+   confirmed via grep that `setup_logging()` is only ever called with
+   no arguments, so a user who needs to diagnose a Bluetooth/HFP or
+   connection issue (per `linux/README.md`'s troubleshooting section)
+   has no way to get debug-level detail into the log file without
+   editing source. Add a tiny `argparse` parse in `app.py`'s `main()`
+   (or a new small `parse_args(argv: list[str]) -> Namespace` helper,
+   which is what should actually be unit tested) for `-v`/`--verbose`,
+   passed through to `setup_logging(verbose=args.verbose)`. Testable by
+   extracting the argument-parsing into its own pure function and
+   asserting in a new `linux/tests/test_app_args.py` that
+   `parse_args([])` yields `verbose=False` and `parse_args(["-v"])`/
+   `parse_args(["--verbose"])` both yield `verbose=True` — no Qt
+   involved at all for this part.
+3. **Session call tally in the tray dropdown.** Neither
+   `CallStateController` nor `TrayIcon` currently track how many calls
+   happened this session — confirmed via reading both files that
+   `call_missed` and the `CALL_ENDED`→answered transition are only ever
+   used transiently for the immediate notification, with nothing
+   accumulated. Add two plain `int` counters (`answered_count`,
+   `missed_count`) to `CallStateController`, incremented in
+   `handle_event`'s existing `CALL_ENDED` branch (the missed case is
+   already detected there via the `phase is CallPhase.RINGING` check;
+   the answered case is the `else` — `phase is CallPhase.ACTIVE`),
+   exposed as read-only properties. Wire a new
+   `TrayIcon.set_call_tally(answered: int, missed: int)` that updates a
+   small disabled menu label (e.g. "Today: 2 answered, 1 missed",
+   following the exact `_disabled_action(...)` pattern already used for
+   `_device_action`), called from `app.py`'s existing `on_call_missed`
+   plus a new equivalent hook for the answered-call path. Testable
+   exactly like the existing `call_missed` tests in
+   `test_call_state.py` (assert the counters increment on the right
+   transitions and stay put on the wrong ones) plus a
+   `test_tray_icon.py` case asserting the label text after
+   `set_call_tally(...)`.
+
 *(PM cycle 2026-07-10 ~03:20 IST added the 3 items below to the top —
 grounded in a fresh re-read of linux/src/dashphone/ against the current
 BACKLOG/state after the bind_failed ship, see state.md for the

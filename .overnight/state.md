@@ -91,6 +91,32 @@ log alone.
   no manual-testing carve-out (unlike an Android/macOS-only change would
   have).
 
+## PM cycle 2026-07-10 ~04:05 IST
+
+- Synced to `origin/overnight/auto-research` at `cfb0d2a` (missed-call
+  notification now in Shipped, no new Abandoned entries). No
+  `.overnight/STOP` present. Re-read `GUARDRAILS.md`, `AGENTS.md`, and
+  re-checked `network/call_server.py`, `__main__.py`, `app.py`,
+  `state/call_state_controller.py`, `logging_setup.py`, and
+  `linux/tests/` to avoid duplicating any of the 9 open Proposed items
+  or the 2 already-Shipped features.
+- Added 3 new items to the top of `BACKLOG.md`'s Proposed section:
+  (1) bounded retry-with-backoff around `CallServer`'s port bind before
+  emitting `bind_failed`, since right now a restart racing the old
+  process's lingering TCP socket permanently kills the listener with
+  no retry at all; (2) expose the already-implemented but never-wired
+  `setup_logging(verbose=...)` flag via a `-v`/`--verbose` CLI arg, so
+  users can actually get debug logs for Bluetooth/connection
+  troubleshooting without editing source; (3) a simple in-session
+  answered/missed call tally surfaced as a disabled tray menu label,
+  building directly on the just-shipped `call_missed` signal and the
+  existing `CALL_ENDED` phase-check in `CallStateController`. All three
+  name specific existing files/functions, are scoped for pure-logic
+  unit testing (helper functions extractable with no Qt needed for at
+  least part of each), and look like ~15-30 min single-cycle scope.
+- No code under `android/`, `linux/src`, `macos/`, or `website/` was
+  touched this cycle — only `.overnight/BACKLOG.md` and this file.
+
 ## PM cycle 2026-07-10 ~03:20 IST
 
 - Synced to `origin/overnight/auto-research` at `5da298c` (bind_failed
