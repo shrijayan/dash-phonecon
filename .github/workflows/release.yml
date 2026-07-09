@@ -51,7 +51,9 @@ jobs:
             esac
             bump="${{ github.event.inputs.bump }}"
           else
-            read -r next bump < <(python3 .github/scripts/compute_version.py | tr '\n' ' ')
+            mapfile -t _computed < <(python3 .github/scripts/compute_version.py)
+            next="${_computed[0]}"
+            bump="${_computed[1]}"
           fi
 
           echo "Computed version: $next (bump: $bump)"
