@@ -39,7 +39,11 @@ def main() -> int:
 
     lock = SingleInstanceLock()
     if not lock.acquire():
-        logger.warning("Another instance of %s is already running - exiting", APP_NAME)
+        logger.warning(
+            "Another instance of %s is already running - exiting (%s)",
+            APP_NAME,
+            lock.last_error,
+        )
         QMessageBox.warning(None, APP_NAME, f"{APP_NAME} is already running.")
         return 1
 

@@ -17,14 +17,22 @@ _ABSTRACT_LOCK_ADDRESS = "\0dash-phonecon.single-instance-lock"
 class SingleInstanceLock:
     def __init__(self) -> None:
         self._socket: socket.socket | None = None
+        self.last_error: OSError | None = None
 
     def acquire(self) -> bool:
-        """Returns True if this is the only running instance."""
+        """Returns True if this is the only running instance.
+
+        On failure, the OSError that caused the failure (e.g. EADDRINUSE
+        because another instance already holds the lock) is stored on
+        ``self.last_error`` for the caller to log/inspect.
+        """
         candidate = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             candidate.bind(_ABSTRACT_LOCK_ADDRESS)
-        except OSError:
+        except OSError as exc:
             candidate.close()
+            self.last_error = exc
             return False
         self._socket = candidate
+        self.last_error = None
         return True
