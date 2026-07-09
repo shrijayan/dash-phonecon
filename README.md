@@ -7,6 +7,15 @@ Receive and control Android phone calls from your computer. When your phone ring
 
 The Android app needs **no changes** to work with either — just type whichever computer's IP address into it.
 
+📖 **[Full documentation](https://shrijayan.github.io/dash-phonecon/)** — install guides, architecture, protocol reference, troubleshooting, FAQ.
+
+**Quick install (Ubuntu):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/shrijayan/dash-phonecon/main/linux/install.sh | bash
+```
+
+**Quick install (Android):** grab the `.apk` from the [latest release](https://github.com/shrijayan/dash-phonecon/releases/latest).
+
 ---
 
 ## What Works (Phases 1–3 — Fully Functional, both platforms)
@@ -83,6 +92,14 @@ open build/DashPhone.app
 ```
 
 ### Ubuntu
+
+**Easy install (recommended):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/shrijayan/dash-phonecon/main/linux/install.sh | bash
+```
+Downloads the latest `.deb` from GitHub Releases and installs it with `apt` — no manual dependency wrangling.
+
+**Build from source instead:**
 ```bash
 cd linux
 ./build-deb.sh

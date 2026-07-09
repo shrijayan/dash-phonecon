@@ -1,0 +1,244 @@
+name: Release
+
+# Auto-versioned release pipeline: every push to main that isn't itself a
+# "chore: release" commit computes the next semver from Conventional Commit
+# messages, bumps every version file in the repo, builds both installable
+# artifacts (Android .apk + Ubuntu .deb), and publishes a single GitHub
+# Release with both attached plus checksums. See AGENTS.md for the commit
+# message conventions that drive the version bump.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Force a specific bump instead of inferring from commits"
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    if: "!contains(github.event.head_commit.message, 'chore: release')"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.compute.outputs.version }}
+      bump: ${{ steps.compute.outputs.bump }}
+      should_release: ${{ steps.compute.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need full history + tags for commit-message classification
+
+      - name: Compute next version
+        id: compute
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.bump }}" != "" ] && [ "${{ github.event.inputs.bump }}" != "auto" ]; then
+            current="$(cat VERSION)"
+            IFS='.' read -r major minor patch <<< "$current"
+            case "${{ github.event.inputs.bump }}" in
+              major) next="$((major + 1)).0.0" ;;
+              minor) next="${major}.$((minor + 1)).0" ;;
+              patch) next="${major}.${minor}.$((patch + 1))" ;;
+            esac
+            bump="${{ github.event.inputs.bump }}"
+          else
+            read -r next bump < <(python3 .github/scripts/compute_version.py | tr '\n' ' ')
+          fi
+
+          echo "Computed version: $next (bump: $bump)"
+          echo "version=$next" >> "$GITHUB_OUTPUT"
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+          if [ "$bump" = "none" ]; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-android:
+    needs: version
+    if: needs.version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Bump version files
+        run: python3 .github/scripts/bump_versions.py "${{ needs.version.outputs.version }}"
+
+      - name: Decode release keystore
+        id: keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "path=$RUNNER_TEMP/release.jks" >> "$GITHUB_OUTPUT"
+          else
+            echo "No RELEASE_KEYSTORE_BASE64 secret set - building a debug-signed APK instead."
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build release APK
+        working-directory: android
+        env:
+          RELEASE_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          if [ -n "$RELEASE_KEYSTORE_PATH" ]; then
+            ./gradlew assembleRelease --console=plain
+            echo "APK_PATH=app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_ENV"
+          else
+            ./gradlew assembleDebug --console=plain
+            echo "APK_PATH=app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_ENV"
+          fi
+
+      - name: Rename + checksum APK
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts
+          out="release-artifacts/dash-phonecon_${{ needs.version.outputs.version }}_android.apk"
+          cp "android/$APK_PATH" "$out"
+          sha256sum "$out" > "$out.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: release-artifacts/
+          retention-days: 7
+
+  build-linux:
+    needs: version
+    if: needs.version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bump version files
+        run: python3 .github/scripts/bump_versions.py "${{ needs.version.outputs.version }}"
+
+      - name: Install packaging + runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            dpkg-dev python3-pyside6.qtcore python3-pyside6.qtgui python3-pyside6.qtwidgets
+
+      - name: Build .deb
+        working-directory: linux
+        run: |
+          chmod +x build-deb.sh
+          QT_QPA_PLATFORM=offscreen ./build-deb.sh
+
+      - name: Checksum .deb
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts
+          cp linux/dist/dash-phonecon_*_all.deb release-artifacts/
+          cd release-artifacts
+          sha256sum dash-phonecon_*_all.deb > "$(ls dash-phonecon_*_all.deb).sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: release-artifacts/
+          retention-days: 7
+
+  test-linux:
+    needs: version
+    if: needs.version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-pyside6.qtcore python3-pyside6.qtgui python3-pyside6.qtwidgets python3-dbus
+
+      - name: Run unit tests
+        working-directory: linux
+        run: QT_QPA_PLATFORM=offscreen python3 -m unittest discover -s tests -t . -v
+
+  publish:
+    needs: [version, build-android, build-linux, test-linux]
+    if: needs.version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump version files
+        run: python3 .github/scripts/bump_versions.py "${{ needs.version.outputs.version }}"
+
+      - name: Commit version bump
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION android/app/build.gradle linux/src/dashphone/__init__.py
+          git commit -m "chore: release v${{ needs.version.outputs.version }} [skip ci]"
+          git tag "v${{ needs.version.outputs.version }}"
+          git push origin HEAD:main
+          git push origin "v${{ needs.version.outputs.version }}"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: release-artifacts/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-deb
+          path: release-artifacts/
+
+      - name: Write release notes
+        run: |
+          set -euo pipefail
+          version="${{ needs.version.outputs.version }}"
+          owner="${{ github.repository_owner }}"
+          repo_name="$(basename "${{ github.repository }}")"
+          {
+            echo "## Install"
+            echo
+            echo "**Ubuntu:**"
+            echo '```bash'
+            echo "curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/linux/install.sh | bash"
+            echo '```'
+            echo "See the [install guide](https://${owner}.github.io/${repo_name}/docs/ubuntu/install) for manual steps."
+            echo
+            echo "**Android:** download \`dash-phonecon_${version}_android.apk\` below and open it on your phone (allow \"install from this source\" if asked). See the [install guide](https://${owner}.github.io/${repo_name}/docs/android/install)."
+          } > /tmp/release-notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${{ needs.version.outputs.version }}"
+          gh release create "v${version}" \
+            release-artifacts/*.apk \
+            release-artifacts/*.apk.sha256 \
+            release-artifacts/*.deb \
+            release-artifacts/*.deb.sha256 \
+            --title "v${version}" \
+            --generate-notes \
+            --notes "$(cat /tmp/release-notes.md)"

@@ -13,6 +13,8 @@ Ubuntu instead of a Mac. Only the "Mac IP Address" field's label on Android
 is a leftover name; type your Ubuntu machine's IP into it, same as you
 would a Mac's.
 
+📖 See the [full documentation site](https://shrijayan.github.io/dash-phonecon/docs/ubuntu/install) for install, first-run, and troubleshooting guides.
+
 ## What works
 
 | Feature | Status |
@@ -22,6 +24,7 @@ would a Mac's.
 | Hang up an active call from Ubuntu | Works |
 | Active call timer + connection status in the tray | Works |
 | Auto-reconnect on the phone side (already built into the Android app) | Works |
+| Other media (Spotify, browser tabs, etc.) pauses automatically during a call | Best-effort - see [Media ducking](#media-ducking-best-effort) |
 | Call audio through this computer's speakers/mic (Bluetooth Hands-Free) | Best-effort - see [Bluetooth call audio](#bluetooth-call-audio-best-effort) |
 
 Unlike macOS 26 (which removed the API this needs - see `../README.md`),
@@ -43,7 +46,18 @@ Bluetooth entirely, over WiFi.
 
 ## Install
 
-### Option A: build and install the .deb (recommended)
+### Option A: one-line install (recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/shrijayan/dash-phonecon/main/linux/install.sh | bash
+```
+
+Downloads the latest `.deb` release from GitHub, verifies its SHA-256
+checksum, and installs it with `apt` (which pulls in PySide6 and every
+other dependency automatically). To install a specific version instead
+of latest: `... | bash -s -- --version 1.2.0`.
+
+### Option B: build and install the .deb yourself
 
 ```bash
 cd linux
@@ -61,7 +75,7 @@ Start it immediately without logging out: `dash-phonecon &`
 
 Uninstall: `sudo apt remove dash-phonecon`
 
-### Option B: run from source (for development)
+### Option C: run from source (for development)
 
 ```bash
 cd linux
@@ -88,6 +102,26 @@ PYTHONPATH=src python3 -m dashphone
    IP). Type either that IP or your Tailscale IP into the Android app's IP
    field and tap Start.
 4. The tray icon turns from grey to its connected colour.
+
+## Media ducking (best-effort)
+
+While a call is active, this app pauses whatever else was playing audio
+(Spotify, a YouTube tab, VLC, etc.) via the standard MPRIS2 D-Bus interface
+(`org.mpris.MediaPlayer2.*`) that most Linux media players implement -
+nothing player-specific to configure. Only players that were actually
+*playing* when the call started are paused, and only those same players
+are resumed when the call ends (anything already paused, or opened during
+the call, is left alone).
+
+This needs no Bluetooth and no phone-side setup - it works over the same
+WiFi/Tailscale call-control link as the popup itself, so it works even if
+[Bluetooth call audio](#bluetooth-call-audio-best-effort) is not set up or
+not supported by your phone.
+
+If a player does not get paused, check the log
+(`~/.local/state/dash-phonecon/dashphone.log`) for `media_ducker` lines -
+most likely that player does not implement MPRIS2, or wasn't in the
+"Playing" state (e.g. a paused video) when the call started.
 
 ## Bluetooth call audio (best-effort)
 
@@ -223,10 +257,12 @@ linux/
 │   ├── state/                    # CallState + CallStateController (pure logic, no Qt widgets/network)
 │   ├── network/                  # asyncio WebSocket server (port 8765) + LAN IP helper
 │   ├── bluetooth/                # best-effort Bluetooth Hands-Free audio routing (Phase 4)
+│   ├── media_ducker.py           # best-effort MPRIS pause/resume of other media during a call
 │   └── ui/                       # tray icon, incoming-call popup, icon drawing
 └── tests/
     ├── test_call_state.py            # unit tests for the state/protocol logic
     ├── test_audio_router_parsing.py  # unit tests for pactl JSON parsing/matching
+    ├── test_media_ducker.py          # unit tests for MPRIS pause/resume matching + idempotency
     └── fake_phone_client.py          # simulates the Android phone, for manual testing
 ```
 
