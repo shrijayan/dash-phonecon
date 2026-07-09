@@ -13,25 +13,7 @@ grounded in a fresh re-read of `network/local_address.py`,
 current Proposed/Shipped/Abandoned lists; none of these duplicate the
 existing open items or either shipped feature.)*
 
-1. **Refresh the tray's "This device: ip:port" label if the network
-   changes, instead of computing it once at startup.** `app.py`'s
-   `main()` calls `device_label=device_label()` exactly once when
-   constructing `TrayIcon`, and `network/local_address.py`'s
-   `device_label()`/`local_ip_address()` are otherwise never called
-   again — confirmed via grep that nothing re-invokes them. A laptop
-   that suspends/resumes on a different Wi-Fi network (or plugs into
-   Ethernet) keeps showing a stale, wrong IP in the tray forever until
-   the whole app is restarted, silently breaking the exact
-   "type this into the Android app" flow the label exists for. Add
-   `TrayIcon.set_device_label(text: str)` (store + `setText()` on the
-   existing `self._device_action`, same shape as `set_bind_error`) and
-   a small `QTimer` in `app.py`'s `main()` (e.g. every 30s) calling
-   `tray.set_device_label(device_label())`. Testable purely via
-   `test_tray_icon.py`: assert `_device_action.text()` reflects the
-   constructor's initial value and updates after calling
-   `set_device_label(...)` with a new string — no real network/timer
-   needed for the unit test itself.
-2. **XDG "Start on Login" autostart toggle.** Confirmed via grep across
+1. **XDG "Start on Login" autostart toggle.**
    `linux/src/dashphone/` and `linux/packaging/` that nothing writes an
    XDG autostart `.desktop` entry — a user has to manually configure
    their DE's session/startup apps to have Dash Phone Con come back
@@ -49,7 +31,7 @@ existing open items or either shipped feature.)*
    session: point `XDG_CONFIG_HOME` at a `tempfile.TemporaryDirectory()`
    in a new `linux/tests/test_autostart.py`, assert the `.desktop` file
    is created/removed and `is_enabled()` reflects it correctly.
-3. **Surface the connected phone's remote IP in the tray status
+2. **Surface the connected phone's remote IP in the tray status
    instead of just logging it.** `network/call_server.py`'s
    `_handle_client` logs `"Phone connected from %s", connection.remote_address`
    but that address is never emitted as a signal or shown anywhere in
@@ -234,6 +216,7 @@ the same "Proposed" section per the format the Engineer persona expects)*
 - [7490f21] feat: surface `bind_failed` to the tray icon instead of dropping it silently (2026-07-10 02:56 IST)
 - [82a00f0] feat: notify on missed calls in the tray icon (2026-07-10 03:34 IST)
 - [2b77c2a] feat: retry binding the WebSocket port a few times before giving up (2026-07-10 04:45 IST)
+- [20c83a4] feat: refresh tray device label periodically instead of once at startup (2026-07-10 04:33 IST)
 
 ## Abandoned
 

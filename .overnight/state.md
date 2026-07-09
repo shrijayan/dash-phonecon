@@ -239,3 +239,11 @@ transient failures, succeeds first try (no unnecessary retries), raises
 after exhausting all attempts. Full linux suite: 42 tests, all green
 (`QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover -s
 tests -t . -v`). Commit: 2b77c2a.
+
+## Engineer cycle 2026-07-10 04:33 IST
+Shipped [20c83a4] feat: refresh tray device label periodically instead of
+once at startup. Added `TrayIcon.set_device_label()` and a 30s `QTimer` in
+`app.py`'s `main()` re-invoking `device_label()`. Added 3 new
+`test_tray_icon.py` cases covering initial value, update, and the
+no-network label case. Full suite: 45/45 tests pass
+(`QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover -s tests -t . -v`).
