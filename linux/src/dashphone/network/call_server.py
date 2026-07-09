@@ -23,6 +23,35 @@ logger = logging.getLogger(__name__)
 DEFAULT_PORT = 8765
 DEFAULT_HOST = "0.0.0.0"  # listen on every interface - the phone connects over LAN/Tailscale
 
+BIND_RETRY_ATTEMPTS = 3
+BIND_RETRY_DELAY_SECONDS = 1.0
+
+
+async def bind_with_retries(bind_fn, attempts: int = BIND_RETRY_ATTEMPTS, delay: float = BIND_RETRY_DELAY_SECONDS):
+    """Call the async ``bind_fn`` (no args), retrying a bounded number of times on OSError.
+
+    This exists to survive the brief window right after a restart where the
+    previous process's WebSocket TCP socket is still lingering in TIME_WAIT
+    even though `SingleInstanceLock`'s abstract-namespace socket has already
+    been released - without a retry, that race causes an immediate,
+    permanent `bind_failed`. Kept as a free function (not a method) so it's
+    trivially unit-testable with a fake `bind_fn` and no real socket/asyncio
+    server involved.
+
+    Raises the last `OSError` if every attempt fails.
+    """
+    last_error: Optional[OSError] = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return await bind_fn()
+        except OSError as error:
+            last_error = error
+            logger.warning("Bind attempt %s/%s failed: %s", attempt, attempts, error)
+            if attempt < attempts:
+                await asyncio.sleep(delay)
+    assert last_error is not None
+    raise last_error
+
 
 class CallServer(QObject):
     """Owns the WebSocket listener.
@@ -93,9 +122,16 @@ class CallServer(QObject):
         self._loop = asyncio.get_running_loop()
         self._stop_event = asyncio.Event()
 
-        async with websockets.serve(self._handle_client, self._host, self._port):
+        async def _bind():
+            return await websockets.serve(self._handle_client, self._host, self._port)
+
+        server = await bind_with_retries(_bind)
+        try:
             logger.info("Listening for the phone on %s:%s", self._host, self._port)
             await self._stop_event.wait()
+        finally:
+            server.close()
+            await server.wait_closed()
 
         logger.info("WebSocket server stopped")
 
