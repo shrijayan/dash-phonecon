@@ -34,21 +34,31 @@ def write_root_version(version: str) -> None:
 
 
 def write_linux_version(version: str) -> None:
+    """Note: compare match count, not before/after text equality, to decide
+    whether the pattern was found - a bump to the same version the file
+    already has (e.g. this project's first release, where VERSION already
+    contains the bootstrap version) is a legitimate no-op substitution and
+    must not be mistaken for "pattern not found"."""
     path = REPO_ROOT / "linux/src/dashphone/__init__.py"
     text = path.read_text()
-    new_text = re.sub(r'__version__ = "[^"]+"', f'__version__ = "{version}"', text)
-    if new_text == text:
+    pattern = re.compile(r'__version__ = "[^"]+"')
+    if not pattern.search(text):
         raise SystemExit(f"Could not find __version__ to update in {path}")
+    new_text = pattern.sub(f'__version__ = "{version}"', text)
     path.write_text(new_text)
 
 
 def write_android_version(version: str, version_code: int) -> None:
+    """See write_linux_version for why presence is checked independently of
+    the substitutions instead of comparing before/after text."""
     path = REPO_ROOT / "android/app/build.gradle"
     text = path.read_text()
-    new_text = re.sub(r"versionCode \d+", f"versionCode {version_code}", text)
-    new_text = re.sub(r'versionName "[^"]+"', f'versionName "{version}"', new_text)
-    if new_text == text:
+    code_pattern = re.compile(r"versionCode \d+")
+    name_pattern = re.compile(r'versionName "[^"]+"')
+    if not code_pattern.search(text) or not name_pattern.search(text):
         raise SystemExit(f"Could not find versionCode/versionName to update in {path}")
+    new_text = code_pattern.sub(f"versionCode {version_code}", text)
+    new_text = name_pattern.sub(f'versionName "{version}"', new_text)
     path.write_text(new_text)
 
 

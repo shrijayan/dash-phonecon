@@ -136,11 +136,19 @@ jobs:
       - name: Bump version files
         run: python3 .github/scripts/bump_versions.py "${{ needs.version.outputs.version }}"
 
-      - name: Install packaging + runtime dependencies
+      - name: Install packaging dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            dpkg-dev python3-pyside6.qtcore python3-pyside6.qtgui python3-pyside6.qtwidgets
+          sudo apt-get install -y --no-install-recommends dpkg-dev
+
+      - name: Install PySide6
+        # python3-pyside6.qtcore/.qtgui/.qtwidgets don't exist in Ubuntu
+        # 24.04 ("noble")'s apt archives at all - Launchpad shows the
+        # pyside6 source package only starts at 24.10 ("oracular") onward.
+        # ubuntu-latest runners are still 24.04, so install from PyPI
+        # instead (this only affects the build/test environment - the
+        # shipped .deb's runtime Depends: is unchanged; see AGENTS.md).
+        run: pip install --break-system-packages PySide6
 
       - name: Build .deb
         working-directory: linux
@@ -172,8 +180,12 @@ jobs:
       - name: Install test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            python3-pyside6.qtcore python3-pyside6.qtgui python3-pyside6.qtwidgets python3-dbus
+          sudo apt-get install -y --no-install-recommends python3-dbus
+
+      - name: Install PySide6
+        # See the matching step in build-linux above: not in noble's apt
+        # archives, so this comes from PyPI for CI only.
+        run: pip install --break-system-packages PySide6
 
       - name: Run unit tests
         working-directory: linux

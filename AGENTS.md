@@ -103,3 +103,25 @@ npm run serve             # smoke-test the production build locally
   the braces. Docusaurus auto-slugs headings via github-slugger; link
   to the auto-generated slug instead (verify with a local build/serve
   before trusting a cross-page anchor link).
+- **`python3-pyside6.*` is missing from Ubuntu 24.04 ("noble")'s apt
+  archives entirely** (confirmed via Launchpad — the `pyside6` source
+  package's earliest published series is 24.10 "oracular"). GitHub's
+  `ubuntu-latest` runner is still 24.04, so CI installs PySide6 from
+  PyPI (`pip install --break-system-packages PySide6`) instead of apt
+  for the `build-linux`/`test-linux` jobs — this only affects the CI
+  build/test environment, not the shipped `.deb`'s `Depends:`. Real
+  Ubuntu 24.04 LTS end users installing the `.deb` may hit the same
+  unsatisfiable-dependency problem; this is a known open issue, not
+  yet resolved in the package's `Depends:` or the docs' "24.04+"
+  support claim.
+- **`bump_versions.py`'s "did the substitution actually match" check**
+  must test pattern presence directly (e.g. `pattern.search(text)`),
+  not compare before/after text equality — a version bump to the same
+  value the file already has (e.g. this project's bootstrap release,
+  where `VERSION` already contains the initial version) is a
+  legitimate no-op substitution and must not be mistaken for "pattern
+  not found".
+- **Bash `read var1 var2 < <(cmd | tr '\n' ' ')` in a `set -e` script**:
+  stripping the trailing newline means `read` hits EOF without a final
+  delimiter and returns exit 1 even after successfully populating both
+  variables, killing the step. Use `mapfile -t arr < <(cmd)` instead.
