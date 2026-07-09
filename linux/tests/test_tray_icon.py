@@ -93,6 +93,20 @@ class TrayIconBindErrorTests(unittest.TestCase):
         except Exception as error:  # pragma: no cover - failure path
             self.fail(f"notify_missed_call raised unexpectedly: {error}")
 
+    def test_device_label_reflects_constructor_initial_value(self) -> None:
+        tray = _make_tray()
+        self.assertEqual(tray._device_action.text(), "This device: 192.168.1.5:8765")
+
+    def test_set_device_label_updates_the_menu_item(self) -> None:
+        tray = _make_tray()
+        tray.set_device_label("This device: 10.0.0.7:8765")
+        self.assertEqual(tray._device_action.text(), "This device: 10.0.0.7:8765")
+
+    def test_set_device_label_reflects_no_network_case(self) -> None:
+        tray = _make_tray()
+        tray.set_device_label("myhost: no network connection")
+        self.assertEqual(tray._device_action.text(), "myhost: no network connection")
+
 
 if __name__ == "__main__":
     unittest.main()

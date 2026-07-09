@@ -73,6 +73,17 @@ class TrayIcon(QSystemTrayIcon):
             self._timer.stop()
         self._refresh()
 
+    def set_device_label(self, text: str) -> None:
+        """Update the disabled \"This device: ip:port\" menu item.
+
+        Without this, the label computed once at startup (see app.py's
+        main()) goes stale forever if the network changes - e.g. a laptop
+        that suspends/resumes on a different Wi-Fi network or plugs into
+        Ethernet keeps showing the old, wrong IP until the whole app is
+        restarted, silently breaking the "type this into the Android app"
+        flow the label exists for."""
+        self._device_action.setText(text)
+
     def set_bind_error(self, message: str) -> None:
         """Called when the WebSocket server couldn't bind its port (see
         CallServer.bind_failed). Today that failure was only logged - the

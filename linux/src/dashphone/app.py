@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import sys
 
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from dashphone.bluetooth import HfpManager
@@ -89,6 +90,11 @@ def main() -> int:
     server.start()
     hfp_manager.start()
     tray.show()
+
+    device_label_timer = QTimer()
+    device_label_timer.setInterval(30_000)  # 30s: catches Wi-Fi switches/suspend-resume without needing an OS network-change hook
+    device_label_timer.timeout.connect(lambda: tray.set_device_label(device_label()))
+    device_label_timer.start()
 
     logger.info("%s is running", APP_NAME)
     exit_code = app.exec()
