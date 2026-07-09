@@ -7,6 +7,82 @@ this file or the codebase.
 
 ## Proposed
 
+*(PM cycle 2026-07-10 ~06:20 IST added the 3 items below to the top —
+grounded in a fresh re-read of `logging_setup.py`, `media_ducker.py`,
+`bluetooth/hfp_manager.py`, and `ui/tray_icon.py` against the current
+Proposed/Shipped/Abandoned lists; none of these duplicate the 14 open
+items or either shipped/abandoned entry.)*
+
+1. **"Open Log File" tray action.** `logging_setup.py`'s
+   `log_file_path()` already computes the exact rotating-log location
+   (`$XDG_STATE_HOME/dash-phonecon/dashphone.log`, falling back to
+   `~/.local/state/...`), and `linux/README.md`'s troubleshooting
+   sections repeatedly tell the user to "check the log file" — but
+   nothing in `ui/tray_icon.py` gives them a one-click way to get there;
+   they have to know the path and open a terminal. Add an enabled
+   `QAction("Open Log File")` to `ui/tray_icon.py`'s menu (near the
+   existing `_device_action`, following the `_disabled_action(...)` /
+   real-`QAction` split already used for "Copy Address" in the
+   Proposed item below), wired via a new constructor callback
+   `on_open_log: Callable[[], None]`. In `app.py`, implement the
+   callback as `QDesktopServices.openUrl(QUrl.fromLocalFile(str(logging_setup.log_file_path())))`
+   (Qt's own cross-DE "open with the default app" helper, no manual
+   `xdg-open` subprocess needed). Testable: the pure/logic part —
+   `logging_setup.log_file_path()` returning a path whose *parent
+   directory* exists (it's created via `mkdir(parents=True,
+   exist_ok=True)` already) — is already indirectly covered, but add a
+   focused `test_logging_setup.py` asserting `log_file_path()` honors
+   `XDG_STATE_HOME` overrides via `monkeypatch`/`os.environ`, plus a
+   `test_tray_icon.py` case asserting the new action exists, is enabled,
+   and invokes the injected `on_open_log` callback when triggered (no
+   real file-opening needed for the Qt-side test — just assert the
+   callback fires, exactly like the existing `on_quit`/`on_hangup`
+   assertions).
+2. **Checkable "Duck Media During Calls" tray toggle.**
+   `media_ducker.py`'s `MediaDucker` is unconditionally wired in
+   `app.py` today (confirmed via grep: `duck_others()`/`restore_others()`
+   are always called on `CALL_ACTIVE`/`CALL_ENDED`, no way to opt out) —
+   but pausing Spotify/Firefox/VLC mid-call is exactly the kind of
+   "helpful most of the time, occasionally annoying" behavior (e.g. a
+   user deliberately keeping music going through a Bluetooth speaker
+   during a quick call) that benefits from a per-user toggle, same
+   spirit as the already-shipped bind-error and missed-call surfacing
+   but for opt-*out* UX rather than visibility. Add a checkable
+   `QAction("Duck Media During Calls")` to `ui/tray_icon.py` (defaults
+   checked, following the exact toggled-`QAction` pattern the existing
+   "Start on Login" idea above also needs — reuse/validate that
+   pattern once here if it lands first), wired via `on_toggle_ducking:
+   Callable[[bool], None]`. In `app.py`, guard the existing
+   `media_ducker.duck_others()`/`restore_others()` calls behind a
+   simple `if ducking_enabled:` flag flipped by the callback — no
+   change needed inside `media_ducker.py` itself. Testable in
+   `test_tray_icon.py` exactly like the existing checkable-action tests
+   (toggle state changes on trigger, callback invoked with the right
+   bool), plus one `app.py`-level test if `app.py` already has a light
+   test harness, or otherwise document as UI-only coverage in the
+   commit body.
+3. **Manual "Rescan for Paired Phone" tray action for Bluetooth
+   audio.** `bluetooth/hfp_manager.py`'s `HfpManager.start()` docstring
+   says outright "Look for a paired phone once, at app startup" —
+   confirmed via grep there is no code path that ever calls
+   `find_paired_phone()` again afterwards, so if the user pairs their
+   phone's Bluetooth *after* launching Dash Phone Con (a very plausible
+   ordering — pairing is a manual, easy-to-forget step per
+   `linux/README.md`'s Bluetooth call-audio section), the only fix
+   today is fully restarting the app. Add a small
+   `HfpManager.rescan() -> None` public method that just re-runs the
+   same body as `start()` (calls `find_paired_phone()`, updates
+   `self._phone`, re-emits `status_changed` — trivial refactor: have
+   `start()` call `self.rescan()` internally so there is exactly one
+   implementation), and wire a new enabled `QAction("Rescan for Paired
+   Phone")` in `ui/tray_icon.py` calling into it via `app.py`. Testable
+   directly in a new/expanded `bluetooth/test_hfp_manager.py`-style
+   test (check if one already exists first) by monkeypatching
+   `find_paired_phone` to return different values on successive calls
+   and asserting `rescan()` updates `self._phone` and emits the new
+   status string each time — no real BlueZ/D-Bus needed, same
+   mocking approach the existing HFP tests (if any) already use.
+
 *(PM cycle 2026-07-10 ~05:10 IST added the 3 items below to the top —
 grounded in a fresh re-read of `network/local_address.py`,
 `network/call_server.py`, `single_instance.py`, and `app.py` against the

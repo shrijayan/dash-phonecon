@@ -91,7 +91,31 @@ log alone.
   no manual-testing carve-out (unlike an Android/macOS-only change would
   have).
 
-## PM cycle 2026-07-10 ~05:10 IST
+## PM cycle 2026-07-10 ~06:20 IST
+
+- Synced to `origin/overnight/auto-research` at `4dde2ad` (tray device-label
+  refresh now in Shipped, no new Abandoned entries). No `.overnight/STOP`
+  present. Re-read `GUARDRAILS.md`, `AGENTS.md`, and freshly checked
+  `logging_setup.py`, `media_ducker.py`, `bluetooth/hfp_manager.py`,
+  `single_instance.py`, and `ui/tray_icon.py` to avoid duplicating any of
+  the 14 open Proposed items or the 4 already-Shipped features.
+- Added 3 new items to the top of `BACKLOG.md`'s Proposed section:
+  (1) an "Open Log File" tray action using `QDesktopServices.openUrl`
+  against `logging_setup.log_file_path()`, since the README repeatedly
+  tells users to "check the log file" with no one-click way to get
+  there; (2) a checkable "Duck Media During Calls" tray toggle, since
+  `media_ducker.py`'s ducking is unconditionally wired today with no
+  opt-out for a user who wants music to keep playing through a call;
+  (3) a manual "Rescan for Paired Phone" tray action for
+  `bluetooth/hfp_manager.py`, since `HfpManager.start()` explicitly only
+  looks for a paired phone once at startup (confirmed via grep — no
+  code path re-scans), forcing a full app restart if Bluetooth pairing
+  happens after launch. All three name specific existing
+  files/functions/patterns, are scoped to ~15-30 min, and have concrete
+  unit-test plans building on existing `linux/tests/` patterns.
+- No code under `android/`, `linux/src`, `macos/`, or `website/` was
+  touched this cycle — only `.overnight/BACKLOG.md` and this file.
+
 
 - Synced to `origin/overnight/auto-research` (bind-retry now in Shipped,
   no new Abandoned entries). No `.overnight/STOP` present. Re-read
