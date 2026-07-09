@@ -5,7 +5,32 @@ appends a short entry here regardless of outcome, so the next cycle (and
 the morning summary) has full visibility without re-deriving it from git
 log alone.
 
-## Session start
+## PM cycle 2026-07-10 ~07:10 IST
+
+- Synced to `origin/overnight/auto-research` (Open Log File now in
+  Shipped, no new Abandoned entries). No `.overnight/STOP` present.
+  Re-read `GUARDRAILS.md`, `AGENTS.md`, and freshly checked
+  `single_instance.py`, `logging_setup.py`, `network/local_address.py`,
+  `ui/call_popup.py`, and `app.py` to avoid duplicating any of the 16
+  open Proposed items or the 5 already-Shipped features.
+- Added 3 new items to the top of `BACKLOG.md`'s Proposed section:
+  (1) store the real `OSError` on `SingleInstanceLock.last_error`
+  instead of discarding it in `acquire()`'s except clause, so the
+  "already running" log line/warning box actually explains *why* (port
+  conflict vs. permission issue) instead of a fixed generic string —
+  fully unit-testable in-process since a second real abstract-namespace
+  socket bind is a genuine deterministic `OSError`, no mocking needed;
+  (2) a `--port`/`-p` CLI flag since `DEFAULT_PORT = 8765` is hardcoded
+  with zero override path today, designed to share an `argparse` helper
+  with the already-open `--verbose` idea rather than duplicating one;
+  (3) extract `ui/call_popup.py`'s `_move_to_top_right()` positioning
+  math into a pure `compute_popup_position()` helper plus a debug log
+  line, addressing the untested/undiagnosable multi-monitor off-screen
+  edge case. All three name specific existing files/functions, are
+  scoped to ~15-30 min, and have concrete pure-logic unit-test plans.
+- No code under `android/`, `linux/src`, `macos/`, or `website/` was
+  touched this cycle — only `.overnight/BACKLOG.md` and this file.
+
 
 - 2026-07-10 ~02:25 IST: Loop initialized by Hermes on user's request
   ("auto research" — endless overnight persona loop: PM/BA proposes

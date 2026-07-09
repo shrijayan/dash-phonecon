@@ -7,6 +7,79 @@ this file or the codebase.
 
 ## Proposed
 
+*(PM cycle 2026-07-10 ~07:10 IST added the 3 items below to the top —
+grounded in a fresh re-read of `single_instance.py`, `logging_setup.py`,
+`network/local_address.py`, `ui/call_popup.py`, and `app.py` against the
+current Proposed/Shipped/Abandoned lists; none of these duplicate the 16
+open items or either shipped/abandoned entry.)*
+
+1. **Log a clear line when `SingleInstanceLock.acquire()` fails, with
+   the reason spelled out, not just a generic warning + `QMessageBox`.**
+   `single_instance.py`'s `acquire()` swallows the `OSError` entirely
+   (`except OSError: candidate.close(); return False`) — confirmed via
+   grep that the only place this result is consumed is `app.py`'s
+   `main()`, which logs a fixed string
+   `"Another instance of %s is already running - exiting"` with no
+   detail from the actual `OSError` (e.g. `EADDRINUSE` vs. a permission
+   problem on the abstract socket namespace, which would be a much more
+   confusing failure to diagnose blind). Change
+   `SingleInstanceLock.acquire()` to store the caught exception on
+   `self.last_error: OSError | None` (set to `None` on success) instead
+   of discarding it, and have `app.py`'s `main()` log
+   `logger.warning("... - exiting (%s)", lock.last_error)` using that
+   stored value. Testable directly and fully in a new
+   `linux/tests/test_single_instance.py`: acquire the lock twice from
+   two separate `SingleInstanceLock()` instances in the same test
+   process (the second `acquire()` call is a real, deterministic
+   `OSError` since abstract-namespace sockets are process-visible, no
+   mocking needed) and assert the second instance's `last_error` is an
+   `OSError` while the first instance's is `None`.
+2. **`--port`/`-p` CLI flag to override the WebSocket listen port, no
+   config file needed.** `network/call_server.py` hardcodes
+   `DEFAULT_PORT = 8765` and `CallServer()`'s constructor already
+   accepts no port argument at all (confirmed via grep: `CallServer()`
+   is instantiated with zero args in `app.py`, and nothing in the tree
+   reads an env var or CLI arg for it) — so a user with something else
+   already bound to 8765 has literally no way to run this app today
+   short of editing source, a strictly worse experience than the
+   already-Proposed config-file idea (item 7 further down) but much
+   smaller in scope: just wire the port `CallServer.__init__` already
+   supports (or add a trivial `port: int = DEFAULT_PORT` parameter if
+   it's missing) through a small `argparse`-based `parse_args(argv:
+   list[str]) -> Namespace` helper in `app.py`, mirroring the exact
+   shape the already-open `-v`/`--verbose` idea further down proposes
+   (both are pure-argparse, no-Qt-needed helpers — land whichever of
+   the two lands first, then the second trivially extends the same
+   helper instead of duplicating an `argparse.ArgumentParser()`).
+   Testable in a new/extended `linux/tests/test_app_args.py`: assert
+   `parse_args([]).port == 8765` and `parse_args(["-p", "9999"]).port
+   == 9999` / `parse_args(["--port", "9999"]).port == 9999` — no Qt
+   involved.
+3. **Log and surface a warning when the call popup's `show_call()`
+   fires with an off-screen or oversized computed position (multi-monitor
+   edge case).** `ui/call_popup.py`'s `_move_to_top_right()` computes
+   `x = available.right() - self.width() - _SCREEN_MARGIN_PX` purely
+   from `QGuiApplication.primaryScreen()` — confirmed via grep this
+   never checks `QGuiApplication.screens()` for the currently active/
+   most-relevant screen, so on a multi-monitor setup where the primary
+   screen is smaller than a secondary one (or the user's cursor/active
+   window lives on a different screen), the popup can render off the
+   visible primary screen area entirely if `available.right()` returns
+   a stale/unexpected value, with zero logging to explain why the popup
+   "never showed up." Add a tiny pure-logic helper
+   `compute_popup_position(available_geometry: QRect, popup_width: int,
+   margin: int) -> tuple[int, int]` extracted out of
+   `_move_to_top_right()`'s existing math (no behavior change, just
+   makes it independently testable), and log
+   `logger.debug("Positioning call popup at (%d, %d) within screen
+   %dx%d", ...)` right before `self.move(...)` so a future off-screen
+   report is diagnosable from the log file the README already tells
+   users to check. Testable directly in a new
+   `linux/tests/test_call_popup_position.py` with plain `QRect`
+   fixtures (no real screen needed) asserting the returned `(x, y)`
+   matches the documented top-right-with-margin formula for a few
+   width/height combinations.
+
 *(PM cycle 2026-07-10 ~06:20 IST added the 3 items below to the top —
 grounded in a fresh re-read of `logging_setup.py`, `media_ducker.py`,
 `bluetooth/hfp_manager.py`, and `ui/tray_icon.py` against the current
