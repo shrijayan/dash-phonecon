@@ -85,6 +85,15 @@ class TrayIcon(QSystemTrayIcon):
         self._refresh()
         self.showMessage(APP_DISPLAY_NAME, message, QSystemTrayIcon.MessageIcon.Warning)
 
+    def notify_missed_call(self, name: str, number: str) -> None:
+        """Called when a call rang and ended without ever being answered
+        (see CallStateController.call_missed). The popup that was showing
+        the incoming call has already closed by the time CALL_ENDED
+        arrives, so without this the user would have no record that a call
+        happened at all unless they noticed it live."""
+        who = name if name else (number if number else "Unknown")
+        self.showMessage(APP_DISPLAY_NAME, f"Missed call from {who}", QSystemTrayIcon.MessageIcon.Information)
+
     @staticmethod
     def _disabled_action(text: str) -> QAction:
         action = QAction(text)

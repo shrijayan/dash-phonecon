@@ -16,7 +16,7 @@ from typing import Callable
 from PySide6.QtCore import QObject, Signal
 
 from dashphone.protocol import FIELD_NAME, FIELD_NUMBER, MessageType, parse_message_type
-from dashphone.state.call_state import CallState
+from dashphone.state.call_state import CallPhase, CallState
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ CommandSender = Callable[[dict], None]
 
 class CallStateController(QObject):
     state_changed = Signal(object)  # emits a CallState
+    call_missed = Signal(str, str)  # emits (name, number) for a missed call
 
     def __init__(self, send_json: CommandSender, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -54,6 +55,13 @@ class CallStateController(QObject):
 
         elif message_type is MessageType.CALL_ENDED:
             logger.info("Call ended")
+            # self._state still holds the *previous* phase here - CALL_ENDED
+            # while still RINGING (no CALL_ACTIVE in between) means the call
+            # rang out or was declined on the phone itself, without this
+            # app's user ever answering it. Distinguish that from a normal
+            # "call was active, then hung up" ending before overwriting it.
+            if self._state.phase is CallPhase.RINGING:
+                self.call_missed.emit(self._state.name, self._state.number)
             self._set_state(CallState.idle())
 
         elif message_type is MessageType.PING:

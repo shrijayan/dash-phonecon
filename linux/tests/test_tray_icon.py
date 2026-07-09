@@ -69,6 +69,30 @@ class TrayIconBindErrorTests(unittest.TestCase):
         tray.set_state(CallState.idle())
         self.assertEqual(tray._status_action.text(), "Connected \u2014 No Active Call")
 
+    def test_notify_missed_call_does_not_raise(self) -> None:
+        tray = _make_tray()
+        try:
+            tray.notify_missed_call("John Doe", "+155****4567")
+        except Exception as error:  # pragma: no cover - failure path
+            self.fail(f"notify_missed_call raised unexpectedly: {error}")
+
+    def test_notify_missed_call_falls_back_to_number_without_name(self) -> None:
+        tray = _make_tray()
+        # Just needs to not raise and not require a name - showMessage's
+        # actual displayed text isn't introspectable via QSystemTrayIcon's
+        # public API, so this asserts the no-name code path is safe.
+        try:
+            tray.notify_missed_call("", "+155****4567")
+        except Exception as error:  # pragma: no cover - failure path
+            self.fail(f"notify_missed_call raised unexpectedly: {error}")
+
+    def test_notify_missed_call_falls_back_to_unknown_without_name_or_number(self) -> None:
+        tray = _make_tray()
+        try:
+            tray.notify_missed_call("", "")
+        except Exception as error:  # pragma: no cover - failure path
+            self.fail(f"notify_missed_call raised unexpectedly: {error}")
+
 
 if __name__ == "__main__":
     unittest.main()

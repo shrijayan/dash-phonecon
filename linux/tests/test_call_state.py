@@ -87,6 +87,40 @@ class CallStateControllerTests(unittest.TestCase):
 
         self.assertEqual(seen_phases, [CallPhase.RINGING, CallPhase.ACTIVE, CallPhase.IDLE])
 
+    def test_call_missed_fires_when_ringing_ends_without_going_active(self) -> None:
+        missed: list[tuple[str, str]] = []
+        self.controller.call_missed.connect(lambda name, number: missed.append((name, number)))
+
+        self.controller.handle_event(
+            {"type": "CALL_RINGING", "number": "+155****4567", "name": "John Doe"}
+        )
+        self.controller.handle_event({"type": "CALL_ENDED"})
+
+        self.assertEqual(missed, [("John Doe", "+155****4567")])
+        self.assertEqual(self.controller.state.phase, CallPhase.IDLE)
+
+    def test_call_missed_does_not_fire_for_a_completed_call(self) -> None:
+        missed: list[tuple[str, str]] = []
+        self.controller.call_missed.connect(lambda name, number: missed.append((name, number)))
+
+        self.controller.handle_event(
+            {"type": "CALL_RINGING", "number": "+155****4567", "name": "John Doe"}
+        )
+        self.controller.handle_event({"type": "CALL_ACTIVE"})
+        self.controller.handle_event({"type": "CALL_ENDED"})
+
+        self.assertEqual(missed, [])
+
+    def test_call_missed_does_not_fire_when_ending_from_idle(self) -> None:
+        """A stray CALL_ENDED with no prior RINGING/ACTIVE shouldn't be
+        reported as a missed call - there was never a call to miss."""
+        missed: list[tuple[str, str]] = []
+        self.controller.call_missed.connect(lambda name, number: missed.append((name, number)))
+
+        self.controller.handle_event({"type": "CALL_ENDED"})
+
+        self.assertEqual(missed, [])
+
 
 if __name__ == "__main__":
     unittest.main()

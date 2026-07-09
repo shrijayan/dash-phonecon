@@ -76,10 +76,15 @@ def main() -> int:
         logger.error(message)
         tray.set_bind_error(message)
 
+    def on_call_missed(name: str, number: str) -> None:
+        logger.info("Missed call: %s (%s)", name or "Unknown", number)
+        tray.notify_missed_call(name, number)
+
     server.message_received.connect(controller.handle_event)
     server.connection_changed.connect(tray.set_connected)
     server.bind_failed.connect(on_bind_failed)
     controller.state_changed.connect(on_state_changed)
+    controller.call_missed.connect(on_call_missed)
 
     server.start()
     hfp_manager.start()
