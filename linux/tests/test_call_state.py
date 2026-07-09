@@ -12,14 +12,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QApplication
 
 from dashphone.protocol import MessageType
 from dashphone.state import CallPhase, CallStateController
 
-# QObject signal/slot plumbing wants an application instance to exist,
-# even for tests that never enter an event loop.
-_app = QCoreApplication.instance() or QCoreApplication(sys.argv[:1])
+# QObject signal/slot plumbing wants an application instance to exist, even
+# for tests that never enter an event loop. Use QApplication (not just
+# QCoreApplication) so that if this module happens to run first during
+# `discover`, other test modules in the same process (e.g. test_tray_icon.py,
+# which constructs a QSystemTrayIcon) inherit a GUI-capable singleton instead
+# of a bare QCoreApplication - the latter segfaults QSystemTrayIcon.
+_app = QApplication.instance() or QApplication(sys.argv[:1])
 
 
 class CallStateControllerTests(unittest.TestCase):

@@ -71,8 +71,14 @@ def main() -> int:
             hfp_manager.close_audio()
             media_ducker.restore_others()
 
+    def on_bind_failed(error: str) -> None:
+        message = f"Port {server.port} unavailable: {error}"
+        logger.error(message)
+        tray.set_bind_error(message)
+
     server.message_received.connect(controller.handle_event)
     server.connection_changed.connect(tray.set_connected)
+    server.bind_failed.connect(on_bind_failed)
     controller.state_changed.connect(on_state_changed)
 
     server.start()

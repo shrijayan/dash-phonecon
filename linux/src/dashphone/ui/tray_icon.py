@@ -30,6 +30,7 @@ class TrayIcon(QSystemTrayIcon):
         super().__init__(parent)
         self._is_connected = False
         self._state: CallState = CallState.idle()
+        self._bind_error: str | None = None
 
         self._status_action = self._disabled_action("Not Connected")
         self._device_action = self._disabled_action(device_label)
@@ -72,6 +73,18 @@ class TrayIcon(QSystemTrayIcon):
             self._timer.stop()
         self._refresh()
 
+    def set_bind_error(self, message: str) -> None:
+        """Called when the WebSocket server couldn't bind its port (see
+        CallServer.bind_failed). Today that failure was only logged - the
+        tray kept showing the generic "Not Connected" status with no way
+        for the user to know the app never actually started listening.
+        This overrides the status line/tooltip with the real reason and
+        also fires a native notification, in case the dropdown is never
+        opened."""
+        self._bind_error = message
+        self._refresh()
+        self.showMessage(APP_DISPLAY_NAME, message, QSystemTrayIcon.MessageIcon.Warning)
+
     @staticmethod
     def _disabled_action(text: str) -> QAction:
         action = QAction(text)
@@ -92,6 +105,8 @@ class TrayIcon(QSystemTrayIcon):
             self._update_timer_text()
 
     def _status_label(self) -> str:
+        if self._bind_error is not None:
+            return self._bind_error
         if not self._is_connected:
             return "Not Connected"
         if self._state.phase is CallPhase.IDLE:
