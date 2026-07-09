@@ -7,6 +7,71 @@ this file or the codebase.
 
 ## Proposed
 
+*(PM cycle 2026-07-10 ~05:10 IST added the 3 items below to the top —
+grounded in a fresh re-read of `network/local_address.py`,
+`network/call_server.py`, `single_instance.py`, and `app.py` against the
+current Proposed/Shipped/Abandoned lists; none of these duplicate the
+existing open items or either shipped feature.)*
+
+1. **Refresh the tray's "This device: ip:port" label if the network
+   changes, instead of computing it once at startup.** `app.py`'s
+   `main()` calls `device_label=device_label()` exactly once when
+   constructing `TrayIcon`, and `network/local_address.py`'s
+   `device_label()`/`local_ip_address()` are otherwise never called
+   again — confirmed via grep that nothing re-invokes them. A laptop
+   that suspends/resumes on a different Wi-Fi network (or plugs into
+   Ethernet) keeps showing a stale, wrong IP in the tray forever until
+   the whole app is restarted, silently breaking the exact
+   "type this into the Android app" flow the label exists for. Add
+   `TrayIcon.set_device_label(text: str)` (store + `setText()` on the
+   existing `self._device_action`, same shape as `set_bind_error`) and
+   a small `QTimer` in `app.py`'s `main()` (e.g. every 30s) calling
+   `tray.set_device_label(device_label())`. Testable purely via
+   `test_tray_icon.py`: assert `_device_action.text()` reflects the
+   constructor's initial value and updates after calling
+   `set_device_label(...)` with a new string — no real network/timer
+   needed for the unit test itself.
+2. **XDG "Start on Login" autostart toggle.** Confirmed via grep across
+   `linux/src/dashphone/` and `linux/packaging/` that nothing writes an
+   XDG autostart `.desktop` entry — a user has to manually configure
+   their DE's session/startup apps to have Dash Phone Con come back
+   after reboot, undocumented anywhere in `linux/README.md`. Add a
+   small new `autostart.py` module with pure, easily-testable functions
+   `is_enabled() -> bool`, `enable() -> None`, `disable() -> None` that
+   read/write `$XDG_CONFIG_HOME/autostart/dash-phonecon.desktop` (falls
+   back to `~/.config/autostart/...`, same `XDG_STATE_HOME`-style
+   fallback pattern already used in `logging_setup.py`'s
+   `log_file_path()`). Wire a checkable `QAction("Start on Login")` in
+   `ui/tray_icon.py`'s menu (new constructor param
+   `on_toggle_autostart: Callable[[bool], None]`, checked state set from
+   `autostart.is_enabled()` at construction) calling into `app.py`'s
+   `autostart.enable()`/`disable()`. Testable end-to-end without a real
+   session: point `XDG_CONFIG_HOME` at a `tempfile.TemporaryDirectory()`
+   in a new `linux/tests/test_autostart.py`, assert the `.desktop` file
+   is created/removed and `is_enabled()` reflects it correctly.
+3. **Surface the connected phone's remote IP in the tray status
+   instead of just logging it.** `network/call_server.py`'s
+   `_handle_client` logs `"Phone connected from %s", connection.remote_address`
+   but that address is never emitted as a signal or shown anywhere in
+   the UI — confirmed via grep that `connection_changed` only carries a
+   bare `bool`, no address. On a network with more than one device (or
+   to sanity-check the right phone reconnected after a Wi-Fi hiccup),
+   the user currently has no way to see which IP is talking to the app
+   without opening the log file. Add a new
+   `CallServer.phone_connected = Signal(str)` emitting
+   `str(connection.remote_address[0])` (or the full tuple stringified,
+   whichever `_handle_client` already has on hand) right where the
+   existing `connection_changed.emit(True)` fires, and a
+   `TrayIcon.set_phone_address(address: str | None)` (None clears it on
+   disconnect) that appends `" (from 192.168.x.y)"` to the existing
+   `_status_label()`'s "Connected" line. Testable: a new
+   `test_call_server.py` case constructing a fake `ServerConnection`-like
+   object with a `.remote_address` attribute and asserting
+   `phone_connected` fires with the right string via `_handle_client`
+   (can call the coroutine directly with `asyncio.run` against a stub
+   async iterator), plus a `test_tray_icon.py` case asserting the label
+   text includes/omits the address correctly.
+
 *(PM cycle 2026-07-10 ~04:05 IST added the 3 items below to the top —
 grounded in a fresh re-read of `network/call_server.py`, `__main__.py`,
 `state/call_state_controller.py`, and `linux/tests/` against the current

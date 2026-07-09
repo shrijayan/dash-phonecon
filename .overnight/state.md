@@ -91,6 +91,35 @@ log alone.
   no manual-testing carve-out (unlike an Android/macOS-only change would
   have).
 
+## PM cycle 2026-07-10 ~05:10 IST
+
+- Synced to `origin/overnight/auto-research` (bind-retry now in Shipped,
+  no new Abandoned entries). No `.overnight/STOP` present. Re-read
+  `GUARDRAILS.md`, `AGENTS.md`, and freshly checked
+  `network/local_address.py`, `network/call_server.py`,
+  `single_instance.py`, `logging_setup.py`, `bluetooth/hfp_manager.py`,
+  `bluetooth/bluez_device_finder.py`, `bluetooth/audio_router.py`,
+  `media_ducker.py`, `ui/tray_icon.py`, and `app.py` to avoid duplicating
+  any of the 12 open Proposed items or the 3 already-Shipped features.
+- Added 3 new items to the top of `BACKLOG.md`'s Proposed section:
+  (1) refresh the tray's device-label IP:port once at startup only
+  (grep-confirmed `device_label()` is never called again after
+  construction) via a periodic `QTimer` + new `TrayIcon.set_device_label`,
+  fixing a real staleness bug for laptops that change networks; (2) an
+  XDG autostart ("Start on Login") toggle — nothing in the tree writes a
+  `~/.config/autostart/*.desktop` entry today, a genuine missing-feature
+  gap, designed as a pure/testable `autostart.py` module using a
+  temp-dir-redirected `XDG_CONFIG_HOME` for full unit coverage with no
+  real session needed; (3) surface the connected phone's remote IP
+  address (already logged via `connection.remote_address` in
+  `_handle_client` but never emitted/shown) as a new `phone_connected`
+  signal + tray status suffix, useful on multi-device networks or to
+  confirm reconnection identity. All three name specific existing
+  files/functions/patterns, are scoped to ~15-30 min, and have concrete
+  unit-test plans using the existing `linux/tests/` suite/patterns.
+- No code under `android/`, `linux/src`, `macos/`, or `website/` was
+  touched this cycle — only `.overnight/BACKLOG.md` and this file.
+
 ## PM cycle 2026-07-10 ~04:05 IST
 
 - Synced to `origin/overnight/auto-research` at `cfb0d2a` (missed-call
