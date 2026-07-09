@@ -91,7 +91,7 @@ class TrayIcon(QSystemTrayIcon):
         the incoming call has already closed by the time CALL_ENDED
         arrives, so without this the user would have no record that a call
         happened at all unless they noticed it live."""
-        who = name if name else (number if number else "Unknown")
+        who = name or number or "Unknown"
         self.showMessage(APP_DISPLAY_NAME, f"Missed call from {who}", QSystemTrayIcon.MessageIcon.Information)
 
     @staticmethod
