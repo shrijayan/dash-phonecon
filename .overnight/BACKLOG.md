@@ -13,32 +13,7 @@ grounded in a fresh re-read of `logging_setup.py`, `media_ducker.py`,
 Proposed/Shipped/Abandoned lists; none of these duplicate the 14 open
 items or either shipped/abandoned entry.)*
 
-1. **"Open Log File" tray action.** `logging_setup.py`'s
-   `log_file_path()` already computes the exact rotating-log location
-   (`$XDG_STATE_HOME/dash-phonecon/dashphone.log`, falling back to
-   `~/.local/state/...`), and `linux/README.md`'s troubleshooting
-   sections repeatedly tell the user to "check the log file" — but
-   nothing in `ui/tray_icon.py` gives them a one-click way to get there;
-   they have to know the path and open a terminal. Add an enabled
-   `QAction("Open Log File")` to `ui/tray_icon.py`'s menu (near the
-   existing `_device_action`, following the `_disabled_action(...)` /
-   real-`QAction` split already used for "Copy Address" in the
-   Proposed item below), wired via a new constructor callback
-   `on_open_log: Callable[[], None]`. In `app.py`, implement the
-   callback as `QDesktopServices.openUrl(QUrl.fromLocalFile(str(logging_setup.log_file_path())))`
-   (Qt's own cross-DE "open with the default app" helper, no manual
-   `xdg-open` subprocess needed). Testable: the pure/logic part —
-   `logging_setup.log_file_path()` returning a path whose *parent
-   directory* exists (it's created via `mkdir(parents=True,
-   exist_ok=True)` already) — is already indirectly covered, but add a
-   focused `test_logging_setup.py` asserting `log_file_path()` honors
-   `XDG_STATE_HOME` overrides via `monkeypatch`/`os.environ`, plus a
-   `test_tray_icon.py` case asserting the new action exists, is enabled,
-   and invokes the injected `on_open_log` callback when triggered (no
-   real file-opening needed for the Qt-side test — just assert the
-   callback fires, exactly like the existing `on_quit`/`on_hangup`
-   assertions).
-2. **Checkable "Duck Media During Calls" tray toggle.**
+1. **Checkable "Duck Media During Calls" tray toggle.**
    `media_ducker.py`'s `MediaDucker` is unconditionally wired in
    `app.py` today (confirmed via grep: `duck_others()`/`restore_others()`
    are always called on `CALL_ACTIVE`/`CALL_ENDED`, no way to opt out) —
@@ -293,6 +268,7 @@ the same "Proposed" section per the format the Engineer persona expects)*
 - [82a00f0] feat: notify on missed calls in the tray icon (2026-07-10 03:34 IST)
 - [2b77c2a] feat: retry binding the WebSocket port a few times before giving up (2026-07-10 04:45 IST)
 - [20c83a4] feat: refresh tray device label periodically instead of once at startup (2026-07-10 04:33 IST)
+- [5bfacb7] feat: add "Open Log File" tray action (2026-07-10 cycle)
 
 ## Abandoned
 

@@ -271,3 +271,10 @@ once at startup. Added `TrayIcon.set_device_label()` and a 30s `QTimer` in
 `test_tray_icon.py` cases covering initial value, update, and the
 no-network label case. Full suite: 45/45 tests pass
 (`QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover -s tests -t . -v`).
+
+## Engineer cycle 2026-07-10 (Open Log File)
+Shipped [5bfacb7] "Open Log File" tray action: added `on_open_log`
+callback to `TrayIcon`, wired in `app.py` via `QDesktopServices.openUrl`
+against `logging_setup.log_file_path()`. Added `test_logging_setup.py`
+(XDG_STATE_HOME override/fallback) and 3 new `test_tray_icon.py` cases.
+Full linux test suite: 51/51 passing.
