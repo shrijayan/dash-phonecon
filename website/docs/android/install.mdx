@@ -1,0 +1,58 @@
+---
+id: install
+title: Install on Android
+sidebar_position: 1
+---
+
+# Install on Android
+
+## Recommended: download the APK from GitHub Releases
+
+1. On your phone, open the [latest release page](https://github.com/shrijayan/dash-phonecon/releases/latest).
+2. Download `dash-phonecon_<version>_android.apk`.
+3. Open the downloaded file. Android will likely ask you to allow
+   "install unknown apps" for your browser/file manager the first
+   time — allow it, then continue the install.
+4. Open the app once installed.
+
+Since this isn't distributed through the Play Store, Android's Play
+Protect may show a warning before installing — that's expected for any
+sideloaded APK; the release's `.sha256` checksum (also attached to the
+release) lets you verify the file wasn't tampered with in transit if
+you want to double check:
+
+```bash
+sha256sum -c dash-phonecon_<version>_android.apk.sha256
+```
+
+## Alternative: build from source with a connected phone
+
+For development, or to install straight over USB via `adb`:
+
+```bash
+git clone https://github.com/shrijayan/dash-phonecon.git
+cd dash-phonecon/android
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+See [Android development](/docs/android/development) for the full
+build setup (JDK, Android SDK).
+
+## First launch
+
+1. Enter your **Ubuntu or Mac computer's IP address** into the "Mac IP
+   Address" field (this label is a historical leftover from before the
+   Ubuntu client existed — type any computer's IP there, Ubuntu's
+   included).
+2. Tap **Start**.
+3. Grant the permissions Android prompts for — see [Permissions](/docs/android/permissions)
+   for what each one is used for and what breaks if you deny it.
+4. The app shows "Connected" once it reaches the desktop app — see the
+   desktop-specific first-run guide for [Ubuntu](/docs/ubuntu/first-run)
+   to find that IP address, or the equivalent step in your Mac app.
+
+## Requirements
+
+`minSdk 26` (Android 8.0+), declared in `android/app/src/main/AndroidManifest.xml`.
+Tested primarily against a Samsung Galaxy A31 (Android 12).

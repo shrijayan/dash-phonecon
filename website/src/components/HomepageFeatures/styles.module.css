@@ -1,0 +1,26 @@
+.features {
+  display: flex;
+  align-items: center;
+  padding: 2rem 0;
+  width: 100%;
+}
+
+.featureEmoji {
+  font-size: 96px;
+  line-height: 1;
+  display: inline-block;
+}
+
+.featureCard {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.15s ease;
+}
+
+.featureCard:hover {
+  color: inherit;
+  text-decoration: none;
+  transform: translateY(-4px);
+}
+

@@ -1,0 +1,122 @@
+---
+id: bluetooth-audio
+title: Bluetooth call audio (best-effort)
+sidebar_position: 3
+---
+
+# Bluetooth call audio (best-effort)
+
+To talk through this computer's speakers/mic during a call — instead of
+the phone's own speaker — like Apple's Continuity Calls between iPhone
+and Mac:
+
+1. **Pair this computer with your phone over Bluetooth once**, the
+   normal way (Settings → Bluetooth, on both sides).
+2. **On Android: Settings → Connected devices → (this computer) → tap
+   the gear icon → enable "Phone calls".** Without this toggle, Android
+   will never connect the Hands-Free audio profile to this computer at
+   all.
+3. **That's it — no configuration needed on the Ubuntu side.** When a
+   call becomes active, the app looks for the phone's Bluetooth audio
+   device and switches your default speaker/mic to it for the call's
+   duration, then switches back afterwards.
+
+This depends on packages from the package's `Recommends:` —
+`python3-dbus`, `pulseaudio-utils`, `bluez`, `libspa-0.2-bluetooth` —
+installed by default with the `.deb` unless you passed
+`--no-install-recommends`.
+
+:::info Why is this "best-effort" and not guaranteed?
+Unlike macOS (where [`IOBluetooth` itself is missing](/docs/faq#why-cant-macos-route-call-audio)),
+Ubuntu's audio stack (PipeWire) has no OS-level wall here — but some
+Android/OEM Bluetooth stacks restrict the "Phone calls" toggle to
+devices they recognize as headsets/car-kits, and every phone/OEM
+combination behaves differently. If it doesn't work, the popup,
+answer/decline/hang up, and media-ducking features above are completely
+unaffected, since none of them use Bluetooth at all.
+:::
+
+## If audio routing doesn't work, check the log first
+
+```bash
+tail -50 ~/.local/state/dash-phonecon/dashphone.log
+```
+
+Then, with a call active, check whether the phone actually shows up as a
+Bluetooth audio device:
+
+```bash
+bluetoothctl info <phone-mac-address>   # look for "Connected: yes"
+pactl list cards                        # look for a bluez_card.<mac> entry
+                                         # and check its available profiles
+```
+
+If there's no `bluez_card...` entry at all while a call is active,
+Android did not open a Hands-Free connection to this computer —
+re-check the "Phone calls" toggle in step 2 above. If the card exists
+but has no available Hands-Free profile, your phone's Bluetooth stack
+is not offering that role to this computer.
+
+## Known blocker on some hardware: HFP Hands-Free transport fails
+
+On a real device (Samsung Galaxy A31 / Android 12) paired with an
+Ubuntu 26.04 machine (PipeWire 1.6.2, WirePlumber 0.5.13, BlueZ 5.85),
+Bluetooth *pairing and policy* both work correctly, but the actual audio
+profile connection does not complete:
+
+- This computer's adapter correctly advertises the `Handsfree` (HF, HFP
+  head-unit) role UUID `0000111e` (confirmed via `bluetoothctl show`) —
+  this is the exact thing that's broken on macOS 26, so Ubuntu gets
+  further than the Mac ever does.
+- Android correctly recognizes this and automatically sets its
+  Bluetooth connection policy for this computer to `HEADSET=100`
+  (ALLOWED) — visible in `adb shell dumpsys bluetooth_manager` —
+  equivalent to the manual "Phone calls" toggle being on.
+- Despite that, `pactl list cards` never shows a `headset-head-unit`
+  profile for the phone's card — only `off` and `audio-gateway` (the
+  *wrong* direction: that profile means this computer would act as the
+  audio gateway for a remote headset, not the other way around).
+- `journalctl -u bluetooth` shows a concrete, 100%-reproducible failure
+  every time Android attempts the connection:
+
+  ```
+  bluetoothd: src/profile.c:ext_io_disconnected() Unable to get io data
+  for Hands-Free unit: getpeername: Transport endpoint is not connected (107)
+  ```
+
+  (and sometimes `Unable to get Hands-Free unit SDP record: Operation
+  already in progress`.) This is a transport-level failure inside
+  BlueZ/PipeWire's native HFP-HF implementation, not a pairing or policy
+  problem.
+
+**Ruled out** (none of these changed the result): stale pairing/link-key
+state (fully unpaired and re-paired from scratch), outdated packages
+(updated `bluez` to the latest available point release), backend choice
+(installed `ofono` and set `bluez5.hfphsp-backend = "ofono"` — didn't
+even produce the transport error, i.e. didn't integrate automatically
+without further oFono-side modem/HFP configuration).
+
+**Not yet tried / next steps for whoever picks this up:**
+
+1. Search upstream PipeWire/BlueZ issue trackers for `"Unable to get io
+   data for Hands-Free unit"` and `ext_io_disconnected` — this looks
+   like a specific, nameable bug rather than a config problem, and may
+   already be reported/fixed in a newer release.
+2. Try a newer/older PipeWire+WirePlumber version.
+3. Capture a full `btmon` trace across a complete connection attempt
+   (`sudo btmon` while toggling Bluetooth on the phone) and inspect the
+   RFCOMM channel setup to see exactly which side closes the socket.
+4. Try a second Android phone/OEM to rule out something specific to this
+   Samsung device's HFP implementation.
+5. Revisit the oFono path properly — oFono has explicit
+   `org.ofono.Handsfree` / `org.ofono.HandsfreeAudioCard` D-Bus APIs
+   designed for exactly this role, but needs oFono to actually
+   detect/bind the Bluetooth device as a modem, which didn't happen
+   automatically without more targeted configuration.
+
+The code in `linux/src/dashphone/bluetooth/` (device discovery, `pactl`
+matching/switching, retry loop) is complete, unit-tested, and confirmed
+to run correctly against this exact failure mode — it detects the
+paired phone, attempts the switch, times out gracefully, and never
+crashes the rest of the app. The blocker is entirely in the underlying
+OS Bluetooth stack, not in this project's code.

@@ -1,0 +1,74 @@
+---
+id: protocol
+title: Protocol reference
+sidebar_position: 3
+---
+
+# Protocol reference
+
+Dash Phone Con's Android app and desktop clients (Ubuntu, macOS) talk
+plain **JSON over WebSocket**. The desktop is always the WebSocket
+**server** (port `8765`, listening on `0.0.0.0`); the Android app is
+always the **client**, dialing whichever IP address you typed into it.
+
+## Phone → desktop (events)
+
+| Message | When it's sent |
+|---|---|
+| `{ "type": "CALL_RINGING", "number": "+155****4567", "name": "John Doe" }` | The phone starts ringing. `name` is looked up from contacts; omitted/empty if unknown. |
+| `{ "type": "CALL_ACTIVE" }` | The call was answered (from either side) and is now in progress. |
+| `{ "type": "CALL_ENDED" }` | The call ended, from either side, for any reason. |
+| `{ "type": "PING" }` | Keepalive, sent every 30s. |
+
+## Desktop → phone (commands)
+
+| Message | Effect |
+|---|---|
+| `{ "type": "ANSWER" }` | Answers the ringing call via `TelecomManager`. |
+| `{ "type": "REJECT" }` | Declines the ringing call. |
+| `{ "type": "HANGUP" }` | Ends the active call. |
+| `{ "type": "PONG" }` | Keepalive reply. |
+
+## Connection lifecycle
+
+1. The desktop app starts a WebSocket server on `0.0.0.0:8765` as soon as
+   it launches.
+2. The Android app connects out to that IP:port using OkHttp's WebSocket
+   client.
+3. If the connection drops, Android retries with exponential backoff
+   (2s → 60s) — no action needed on the desktop side.
+4. Every 30 seconds, the desktop sends `PING`; Android replies `PONG`.
+   This detects half-open connections (e.g. the phone left WiFi range)
+   faster than TCP timeouts would.
+
+## Single source of truth (duplicated by hand across 3 languages)
+
+This exact message vocabulary is implemented independently in three
+places, since the project has no shared codegen step across
+Kotlin/Swift/Python:
+
+- `android/app/src/main/java/com/dash/phonecon/MessageType.kt`
+- `macos/DashPhone/Models/MessageType.swift`
+- `linux/src/dashphone/protocol/message_type.py`
+
+**If you change the protocol, update all three** — and add a new type to
+each `switch`/`match`/`if` chain that handles incoming messages. Every
+handler in this codebase has a `default: break` / equivalent fallback for
+unrecognized types specifically so a newer phone (or older desktop
+client) never crashes on a message it doesn't understand yet — keep that
+pattern when you add new message types.
+
+## Manual testing without a real phone
+
+The Ubuntu client ships a fake-phone test client:
+
+```bash
+cd linux
+# rings, waits for you to click Answer/Decline in the real tray app, prints the result
+python3 tests/fake_phone_client.py --number "+155****4567" --name "Jordan Test"
+
+# or a fully scripted ring -> active -> ended cycle, no clicking needed
+python3 tests/fake_phone_client.py --auto
+```
+
+See [Ubuntu development](/docs/ubuntu/development) for the full local dev loop.

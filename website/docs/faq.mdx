@@ -1,0 +1,111 @@
+---
+id: faq
+title: FAQ
+sidebar_position: 10
+---
+
+# FAQ
+
+### "But AirDroid / KDE Connect can do call audio — why can't this?"
+
+**Short answer: AirDroid works on specific phones only, because of OEM
+deals — not because they found a trick this project missed.**
+
+To capture both sides of a phone call (your voice + the caller's voice)
+as audio data, an Android app needs one of these `AudioRecord` sources:
+
+| Source | What it captures | Permission required |
+|---|---|---|
+| `VOICE_CALL` | Both sides | `CAPTURE_AUDIO_OUTPUT` — system/OEM only |
+| `VOICE_DOWNLINK` | Caller's voice only | `CAPTURE_AUDIO_OUTPUT` — system/OEM only |
+| `VOICE_COMMUNICATION` | Your mic only | `RECORD_AUDIO` — any app |
+
+`CAPTURE_AUDIO_OUTPUT` **cannot be granted by the user**. It's only
+available to APKs pre-installed on the device or signed with the OEM's
+platform key. No sideloaded app can get it on stock Android.
+
+AirDroid has **OEM partnerships** (primarily Samsung). On supported
+devices, their APK ships pre-installed or is signed with elevated
+privileges that unlock `VOICE_CALL` audio capture — which is why their
+own documentation says call-handling support *"depends on phone"*. On a
+stock Android device with a user-installed APK, they hit the exact same
+wall this project does.
+
+A SIP bridge doesn't help either — it routes audio over WiFi instead of
+Bluetooth, which sidesteps the macOS Bluetooth blocker below, but it
+still needs `CAPTURE_AUDIO_OUTPUT` to capture the caller's voice, so it
+hits the same Android permission wall.
+
+The only workaround on a stock, unrooted device is forcing the call to
+speakerphone and picking up both voices acoustically via
+`VOICE_COMMUNICATION` — works on any phone, but with degraded audio
+quality. Rooting the phone or a Google-side new permission are the only
+real unblocks, and neither is in scope for this project.
+
+### Why can't macOS route call audio?
+
+**macOS 26 removed the `IOBluetooth.framework` binary.** The framework
+directory still exists (for header compatibility) but the actual binary
+implementation is gone:
+
+```
+/System/Library/Frameworks/IOBluetooth.framework/Versions/A/
+  IOBluetooth   ← MISSING (this is the binary)
+  Headers/      ← present
+  Resources/    ← present
+```
+
+`IOBluetoothHandsFreeDevice` still exists in the dyld shared cache (so
+code using it compiles and runs), but `connect()` fires with no callback
+because the underlying implementation is gone. Apple's replacement
+frameworks (`BluetoothManager.framework`, `BluetoothAudio.framework`)
+are private and require Apple system entitlements this app can't get as
+a third-party signed app — confirmed by testing `pairedDevices` (returns
+0), `BTAudioRoutingRequest` (unavailable in-app), and
+`BTAudioRoutingRequest.isSupported` (`false`).
+
+This blocks **only Bluetooth call audio** — the popup, answer, decline,
+and hang-up features all work over WiFi and are completely unaffected.
+
+Unblocking this requires Apple to ship a public API replacement. If
+you're affected, consider filing feedback at
+[feedbackassistant.apple.com](https://feedbackassistant.apple.com)
+referencing the missing `IOBluetooth.framework` binary.
+
+### Why does Ubuntu's Bluetooth audio work differently than macOS's?
+
+It's a different mechanism entirely, not a workaround for the same wall.
+The macOS/Android wall above is about an **app** trying to grab call
+audio via software (Android's `AudioRecord` API). Bluetooth HFP (Hands-Free
+Profile) is native OS/Bluetooth-stack behavior — the same path a real
+Bluetooth headset or car kit uses — and needs no special Android app
+permission at all.
+
+Ubuntu's audio stack (PipeWire) has no equivalent of macOS 26's removed
+`IOBluetooth` binary, so this path is not blocked at the OS level the
+way macOS's is. It's currently only **best-effort** because it depends
+on your specific phone's Android/OEM Bluetooth stack correctly completing
+the Hands-Free transport connection — see [Ubuntu Bluetooth
+audio](/docs/ubuntu/bluetooth-audio) for the current state and a known
+BlueZ/PipeWire bug this project has run into on real hardware.
+
+### Does this let me make outgoing calls from my computer?
+
+No. It only reacts to calls already happening on the phone — incoming
+call notification, and answer/decline/hang-up for that call. There's no
+dial-out feature.
+
+### Do I need my phone and computer on the same WiFi network?
+
+You need them to be able to reach each other over IP — same LAN is the
+simplest setup, but a [Tailscale](https://tailscale.com) tailnet works
+too (and is recommended if your phone ever leaves your home network, or
+if your WiFi has client isolation). See [Ubuntu first
+run](/docs/ubuntu/first-run) for exact setup steps.
+
+### What Android versions/phones are supported?
+
+`minSdk 26` (Android 8.0+) is declared in the app manifest. Development
+and testing has been done primarily against a Samsung Galaxy A31
+(Android 12). See [Android permissions](/docs/android/permissions) for
+what each required permission is used for.

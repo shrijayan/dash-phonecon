@@ -1,0 +1,51 @@
+---
+id: first-run
+title: First-time setup
+sidebar_position: 2
+---
+
+# First-time setup (Ubuntu)
+
+1. **Install this app on Ubuntu** — see [Install on Ubuntu](/docs/ubuntu/install)
+   — and **install the Android app on your phone** — see [Install on
+   Android](/docs/android/install).
+2. **Make sure both devices can reach each other.** Either:
+   - **Same local WiFi network** (simplest, no extra setup), or
+   - **[Tailscale](https://tailscale.com)** (recommended if your phone is
+     ever on a different network than this computer — mobile data, a
+     different WiFi, or a network with client isolation that blocks
+     device-to-device LAN traffic even when "on the same WiFi"). Install
+     the Tailscale app on the phone and sign into the same tailnet as
+     this computer, then use this computer's Tailscale IP
+     (`tailscale ip -4`) instead of its LAN IP in the next step. The
+     WebSocket server listens on all interfaces (`0.0.0.0`), so it
+     accepts connections from either.
+3. **Open the Ubuntu tray icon menu** — it shows "This device:
+   `<ip>`:8765" (your LAN IP). Type either that IP or your Tailscale IP
+   into the Android app's IP field and tap **Start**.
+4. **The tray icon turns from grey to blue** once connected. It changes
+   color again for ringing (amber) and active calls (green).
+
+That's it — incoming calls now show a popup on your desktop with Answer
+/ Decline, and an active call shows a Hang Up option and elapsed timer
+in the tray menu.
+
+## Optional: media auto-pause during calls
+
+While a call is active, the app automatically pauses whatever else was
+playing audio (Spotify, a YouTube tab, VLC, etc.) via the standard
+MPRIS2 D-Bus interface most Linux media players implement — nothing to
+configure. See `linux/README.md`'s "Media ducking" section for details
+and how to check the log if a player doesn't get paused.
+
+## Optional: call audio through your computer's speakers/mic
+
+By default, call audio still plays through your phone's own speaker —
+this app only handles the popup and call *control*. To route the actual
+call audio through this computer as well (like Apple's Continuity Calls),
+see [Bluetooth call audio](/docs/ubuntu/bluetooth-audio) — it's a
+separate, best-effort setup step involving Bluetooth pairing.
+
+## Something not working?
+
+See [Troubleshooting](/docs/troubleshooting).

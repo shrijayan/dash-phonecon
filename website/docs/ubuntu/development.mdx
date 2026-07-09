@@ -1,0 +1,90 @@
+---
+id: development
+title: Development (Ubuntu)
+sidebar_position: 4
+---
+
+# Development (Ubuntu client)
+
+## Setup
+
+```bash
+git clone https://github.com/shrijayan/dash-phonecon.git
+cd dash-phonecon/linux
+sudo apt install python3-pyside6.qtcore python3-pyside6.qtgui python3-pyside6.qtwidgets python3-websockets
+```
+
+## Run from source
+
+```bash
+PYTHONPATH=src python3 -m dashphone
+```
+
+## Run the unit tests
+
+No display, no real phone, and no Bluetooth hardware needed:
+
+```bash
+QT_QPA_PLATFORM=offscreen python3 -m unittest discover -s tests -t . -v
+```
+
+| Test file | Covers |
+|---|---|
+| `test_call_state.py` | `CallState` / protocol logic |
+| `test_audio_router_parsing.py` | `pactl` JSON parsing/matching |
+| `test_media_ducker.py` | MPRIS pause/resume matching + idempotency |
+
+## Try the whole app against a simulated phone
+
+```bash
+# terminal 1
+PYTHONPATH=src python3 -m dashphone
+
+# terminal 2 - rings, waits for you to click Answer/Decline, prints the result
+python3 tests/fake_phone_client.py --number "+155****4567" --name "Jordan Test"
+
+# or a fully scripted ring -> active -> ended cycle, no clicking needed
+python3 tests/fake_phone_client.py --auto
+```
+
+Logs are written to `~/.local/state/dash-phonecon/dashphone.log`
+(rotated automatically) as well as the terminal.
+
+## Build the `.deb` locally
+
+```bash
+./build-deb.sh
+sudo apt install ./dist/dash-phonecon_*_all.deb
+```
+
+The version number baked into the package comes from
+`linux/src/dashphone/__init__.py`'s `__version__` — the same file the
+CI release pipeline bumps automatically (see
+[Releases & versioning](/docs/releases)). You normally don't need to
+touch it by hand.
+
+## Project structure
+
+```
+linux/
+├── build-deb.sh                  # assembles the .deb from src/
+├── install.sh                    # one-line installer for end users
+├── packaging/                    # Debian control file, postinst/postrm,
+│                                  # .desktop entry, launcher script
+├── src/dashphone/
+│   ├── app.py                    # composition root - wires everything together
+│   ├── protocol/                 # shared message-type vocabulary (see /docs/protocol)
+│   ├── state/                    # CallState + CallStateController (pure logic, no Qt/network)
+│   ├── network/                  # asyncio WebSocket server (port 8765) + LAN IP helper
+│   ├── bluetooth/                # best-effort Bluetooth Hands-Free audio routing
+│   ├── media_ducker.py           # best-effort MPRIS pause/resume of other media during a call
+│   └── ui/                       # tray icon, incoming-call popup, icon drawing
+└── tests/
+    ├── test_call_state.py
+    ├── test_audio_router_parsing.py
+    ├── test_media_ducker.py
+    └── fake_phone_client.py      # simulates the Android phone, for manual testing
+```
+
+See [Architecture](/docs/architecture) for how this maps onto the macOS
+and Android clients.

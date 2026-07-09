@@ -1,0 +1,74 @@
+---
+id: development
+title: Development (Android)
+sidebar_position: 3
+---
+
+# Development (Android client)
+
+## Prerequisites
+
+- JDK 17
+- Android SDK (build-tools + platform API 34; `minSdk` is 26)
+- `adb`, for installing to a connected phone or emulator
+
+## Build
+
+```bash
+git clone https://github.com/shrijayan/dash-phonecon.git
+cd dash-phonecon/android
+./gradlew assembleDebug
+```
+
+Output: `app/build/outputs/apk/debug/app-debug.apk`
+
+## Install to a connected phone
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Or use the bundled convenience script (adjust `ANDROID_HOME` for your
+setup first):
+
+```bash
+./build.sh
+```
+
+## Build a release APK locally
+
+```bash
+./gradlew assembleRelease
+```
+
+Without the CI signing secrets set (`RELEASE_KEYSTORE_PATH`, etc.), this
+falls back to the auto-generated debug key so it still builds
+out-of-the-box — see `android/app/build.gradle`'s `signingConfigs`
+block. The CI pipeline (`.github/workflows/release.yml`) supplies a
+dedicated release key from repository secrets so every published APK on
+GitHub Releases shares one signing identity across versions — see
+[Releases & versioning](/docs/releases).
+
+## Key source files
+
+| File | Responsibility |
+|---|---|
+| `CallService.kt` | Foreground service — owns the WebSocket client, handles call events |
+| `PhoneStateReceiver.kt` | Detects RINGING / ACTIVE / IDLE phone states |
+| `PhoneWebSocketClient.kt` | OkHttp WebSocket client, exponential backoff (2s → 60s), 30s ping |
+| `ContactHelper.kt` | Phone number → contact name lookup |
+| `BootReceiver.kt` | Auto-starts `CallService` on device reboot |
+| `MainActivity.kt` | UI: enter the desktop's IP, start/stop the service, connection status |
+
+See [Protocol reference](/docs/protocol) for the WebSocket message
+format this app speaks to both desktop clients, and
+[Permissions explained](/docs/android/permissions) for what each
+manifest permission is for.
+
+## Versioning
+
+`versionCode`/`versionName` in `android/app/build.gradle` are bumped
+automatically by the CI release pipeline
+(`.github/scripts/bump_versions.py`), derived from the project's
+semantic version — you normally don't need to edit them by hand. See
+[Releases & versioning](/docs/releases).

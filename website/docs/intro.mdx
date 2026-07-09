@@ -1,0 +1,76 @@
+---
+id: intro
+title: Dash Phone Con
+slug: /intro
+sidebar_position: 1
+---
+
+# Dash Phone Con
+
+**Answer and control your Android phone's calls from your computer.** When
+your phone rings, a popup appears on your desktop with the caller's name
+and number — answer, decline, or hang up without touching your phone.
+
+Two desktop clients exist, both speaking the exact same WiFi protocol to
+the same Android app:
+
+| Platform | What it is | Status |
+|---|---|---|
+| **[Ubuntu](/docs/ubuntu/install)** | System tray app, installable as a `.deb` | Fully supported — install script, one command |
+| **[macOS](/docs/macos/install)** | Menu bar app (Swift/SwiftUI) | Fully supported for call control; Bluetooth call audio blocked by a macOS 26 regression |
+| **[Android](/docs/android/install)** | Companion app, required on both platforms above | One APK, works with either desktop |
+
+The Android app needs **no changes** to work with either desktop — just
+type whichever computer's IP address into it.
+
+## What works today
+
+| Feature | Ubuntu | macOS |
+|---|---|---|
+| Incoming call popup with caller name + number | ✅ | ✅ |
+| Answer call from the computer | ✅ | ✅ |
+| Reject incoming call from the computer | ✅ | ✅ |
+| Hang up an active call from the computer | ✅ | ✅ |
+| Active call timer + connection status | ✅ | ✅ |
+| Auto-reconnect (Android side, shared) | ✅ | ✅ |
+| Other media (Spotify, browser tabs) auto-pauses during a call | ✅ best-effort | — |
+| Call audio through computer speakers/mic (Bluetooth Hands-Free) | ⚠️ best-effort, see [Bluetooth audio](/docs/ubuntu/bluetooth-audio) | ❌ blocked by macOS 26, see [FAQ](/docs/faq) |
+
+## How it works
+
+```
+Android Phone                          Ubuntu PC or Mac
+┌──────────────────────┐  WiFi/LAN     ┌─────────────────────┐
+│  Foreground Service  │◄─────────────►│  Tray / Menu Bar App│
+│  (Kotlin)            │  WebSocket    │  (PySide6 / SwiftUI)│
+│                      │  port 8765    │                     │
+│  Phone state         │  CALL_RINGING │  Popup: name+number │
+│  listener            │──────────────►│  Answer / Decline   │
+│  Contact lookup      │  CALL_ACTIVE  │  Hang up            │
+│                      │──────────────►│  Tray/menu bar icon │
+│                      │  CALL_ENDED   │  Active call timer  │
+│                      │──────────────►│                     │
+│                      │◄──────────────│                     │
+│                      │  ANSWER/      │                     │
+│                      │  REJECT/      │                     │
+│                      │  HANGUP       │                     │
+└──────────────────────┘               └─────────────────────┘
+```
+
+Both devices need to be reachable over the network (same WiFi, or a VPN
+like Tailscale). Nothing here can *dial out* — it only reacts to calls
+already happening on the phone. See [Architecture](/docs/architecture) for
+the full picture and [Protocol reference](/docs/protocol) for the exact
+WebSocket message format.
+
+## Get started
+
+- **Own an Ubuntu machine?** → [Install on Ubuntu](/docs/ubuntu/install)
+- **Own a Mac?** → [Install on macOS](/docs/macos/install)
+- **Either way, you need the phone app too** → [Install on Android](/docs/android/install)
+
+## Project links
+
+- [Latest release](https://github.com/shrijayan/dash-phonecon/releases/latest) — download the `.deb` or `.apk` directly
+- [Source on GitHub](https://github.com/shrijayan/dash-phonecon)
+- [Report an issue](https://github.com/shrijayan/dash-phonecon/issues)

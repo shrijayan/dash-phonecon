@@ -1,0 +1,57 @@
+---
+id: releases
+title: Releases & versioning
+sidebar_position: 8
+---
+
+# Releases & versioning
+
+Every merge to `main` runs an automated release pipeline
+(`.github/workflows/release.yml`) that:
+
+1. **Computes the next version** from [Conventional Commits](https://www.conventionalcommits.org/)
+   made since the last `vX.Y.Z` tag:
+   - any commit with `!` after the type/scope (e.g. `feat!:`) or a
+     `BREAKING CHANGE:` footer → **major** bump
+   - any `feat:` commit → **minor** bump
+   - anything else (`fix:`, `perf:`, `refactor:`, `chore:`, `docs:`, `ci:`, `test:`) → **patch** bump
+   - if nothing release-worthy changed, no release is created
+2. **Bumps every version file** in the repo to that number in one commit
+   (`VERSION`, `linux/src/dashphone/__init__.py`'s `__version__`,
+   `android/app/build.gradle`'s `versionCode`/`versionName`) — see
+   `.github/scripts/bump_versions.py`.
+3. **Builds and tests both platforms:**
+   - Ubuntu: runs the full unit test suite, then builds the `.deb` with `linux/build-deb.sh`
+   - Android: builds a release APK, signed with the project's release
+     key when the signing secrets are configured (falls back to a
+     debug-signed APK otherwise)
+4. **Tags and publishes** a GitHub Release (`vX.Y.Z`) with the `.deb`,
+   the `.apk`, and a `.sha256` checksum for each attached.
+
+You can also trigger a release manually from the **Actions** tab
+(`workflow_dispatch`) and force a specific bump (`patch` / `minor` /
+`major`) instead of relying on commit-message inference.
+
+## Where to get a release
+
+- **Latest release page:** https://github.com/shrijayan/dash-phonecon/releases/latest
+- **Ubuntu:** `curl -fsSL https://raw.githubusercontent.com/shrijayan/dash-phonecon/main/linux/install.sh | bash` — see [Ubuntu install](/docs/ubuntu/install)
+- **Android:** download the `.apk` from the release page — see [Android install](/docs/android/install)
+
+## Version numbering
+
+Android's `versionCode` (which must strictly increase between installs)
+is derived directly from the semantic version so the two can never drift
+out of sync:
+
+```
+versionCode = major * 10000 + minor * 100 + patch
+```
+
+For example, `v1.4.2` → `versionCode 10402`.
+
+## Commit message conventions
+
+See [AGENTS.md](https://github.com/shrijayan/dash-phonecon/blob/main/AGENTS.md#commit-conventions--the-auto-release-pipeline)
+in the repository root for the full list of commit types this pipeline
+recognizes.

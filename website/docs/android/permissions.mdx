@@ -1,0 +1,40 @@
+---
+id: permissions
+title: Permissions explained
+sidebar_position: 2
+---
+
+# Permissions explained
+
+The Android app requests the following permissions
+(`android/app/src/main/AndroidManifest.xml`). Each is used for exactly
+one purpose — nothing here is used for analytics, ads, or anything
+beyond making call control work:
+
+| Permission | Used for | If denied |
+|---|---|---|
+| `READ_PHONE_STATE` | Detecting when the phone is ringing / active / idle | The app can't detect calls at all — this is the core permission |
+| `READ_CONTACTS` | Looking up the caller's name from the number | Popup shows only the number, not a name |
+| `READ_CALL_LOG` | Cross-referencing call state details | Caller name lookup may be less reliable |
+| `ANSWER_PHONE_CALLS` | Answering a ringing call via `TelecomManager` when you tap Answer on the desktop | Answer button won't work; Decline/Hangup still will |
+| `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_PHONE_CALL` | Keeping `CallService` alive in the background so it can react to calls even when the app isn't open | Android may kill the service while the app is backgrounded, breaking call detection |
+| `POST_NOTIFICATIONS` | Showing the persistent "DashPhone active" foreground-service notification (required by Android for foreground services) | Service may not be allowed to run in the foreground |
+| `RECEIVE_BOOT_COMPLETED` | Auto-starting the service after a phone reboot, via `BootReceiver` | You'd need to manually reopen the app after every reboot |
+| `INTERNET` | The WebSocket connection to your desktop app | Nothing works without this |
+| `BLUETOOTH_CONNECT` / `BLUETOOTH` (`maxSdkVersion=30`) | Reserved for Bluetooth-related interactions on the phone side | No effect on core call control |
+| `MODIFY_AUDIO_SETTINGS` | Reserved for audio routing adjustments | No effect on core call control |
+
+## Why so many permissions for a "simple" call popup?
+
+Android's `TelecomManager`/`PhoneStateListener` APIs are intentionally
+narrow — each capability (detecting ringing, reading a caller's name,
+answering a call programmatically) is gated behind its own permission,
+so there's no single "control calls" permission to request instead.
+
+## Battery optimization
+
+Some Android OEM skins (Samsung, Xiaomi, OnePlus, etc.) aggressively
+kill background services beyond what stock Android does. If calls stop
+being detected after the phone has been idle for a while, check your
+phone's battery settings for this app and set it to **unrestricted** /
+**no restrictions** — the exact wording and location varies by OEM.

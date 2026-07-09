@@ -1,0 +1,104 @@
+---
+id: architecture
+title: Architecture
+sidebar_position: 2
+---
+
+# Architecture
+
+Dash Phone Con is one Android app plus two interchangeable desktop
+clients that all speak the same protocol.
+
+```
+Android Phone                          Ubuntu PC or Mac
+┌──────────────────────┐  WiFi/LAN     ┌─────────────────────┐
+│  Foreground Service  │◄─────────────►│  Tray / Menu Bar App│
+│  (Kotlin)            │  WebSocket    │  (PySide6 / SwiftUI)│
+│                      │  port 8765    │                     │
+│  Phone state         │  CALL_RINGING │  Popup: name+number │
+│  listener            │──────────────►│  Answer / Decline   │
+│  Contact lookup      │  CALL_ACTIVE  │  Hang up            │
+│                      │──────────────►│  Tray/menu bar icon │
+│                      │  CALL_ENDED   │  Active call timer  │
+│                      │──────────────►│                     │
+│                      │◄──────────────│                     │
+│                      │  ANSWER/      │                     │
+│                      │  REJECT/      │                     │
+│                      │  HANGUP       │                     │
+└──────────────────────┘               └─────────────────────┘
+           │                                      │
+           └──── Bluetooth (paired, ACL only) ────┘
+             HFP audio: best-effort on Ubuntu,
+                blocked on macOS (see FAQ)
+```
+
+## Components
+
+### Android app (`android/`) — shared by both desktop platforms
+
+| File | Responsibility |
+|---|---|
+| `CallService.kt` | Foreground service — owns the WebSocket client, handles call events |
+| `PhoneStateReceiver.kt` | Detects RINGING / ACTIVE / IDLE phone states |
+| `PhoneWebSocketClient.kt` | OkHttp WebSocket client, exponential backoff (2s → 60s), 30s ping |
+| `ContactHelper.kt` | Phone number → contact name lookup |
+| `BootReceiver.kt` | Auto-starts `CallService` on device reboot |
+| `MainActivity.kt` | UI: enter the desktop's IP, start/stop the service, connection status |
+
+### Ubuntu client (`linux/`) — Python + PySide6, packaged as a `.deb`
+
+| Module | Responsibility |
+|---|---|
+| `app.py` | Composition root — wires every piece together |
+| `protocol/message_type.py` | Shared message-type vocabulary (source of truth on the Ubuntu side) |
+| `state/` | `CallState` + `CallStateController` — pure logic, no Qt or network dependency |
+| `network/call_server.py` | `asyncio` WebSocket server on port 8765 |
+| `bluetooth/` | Best-effort Bluetooth Hands-Free audio routing |
+| `media_ducker.py` | Best-effort MPRIS2 pause/resume of other media during a call |
+| `ui/` | Tray icon, incoming-call popup, icon drawing |
+
+Each layer only depends on the small interface it actually needs (a
+`CallState`, a "send this JSON" function, etc.) instead of on each
+other's concrete classes.
+
+### macOS client (`macos/`) — Swift/SwiftUI
+
+| File | Responsibility |
+|---|---|
+| `DashPhoneApp.swift` | App entry point, wires all components together |
+| `Network/CallServer.swift` | `NWListener` WebSocket server on port 8765 |
+| `Models/CallStateViewModel.swift` | Call state machine (idle / ringing / active) |
+| `Views/CallPopupWindow.swift` | Floating `NSPanel` (non-activating, top-right) |
+| `Views/CallPopupView.swift` | SwiftUI incoming-call card |
+| `Views/MenuBarView.swift` | Menu bar icon + dropdown |
+| `Bluetooth/HFPManager.swift` | HFP audio manager — blocked on macOS 26, see the [FAQ](/docs/faq) |
+
+The Ubuntu app mirrors this same architecture module-for-module
+(`CallStateViewModel` → `CallStateController`, `CallServer` → `call_server.py`,
+`HFPManager` → `bluetooth/hfp_manager.py`), so both apps are easy to compare
+side by side.
+
+## Repository layout
+
+```
+dash-phonecon/
+├── android/          # Kotlin Android app (shared by both desktop clients)
+├── macos/            # Swift/SwiftUI Mac app
+├── linux/            # Python/PySide6 Ubuntu app (.deb packaged)
+│   ├── build-deb.sh  # assembles the installable .deb package
+│   ├── install.sh    # one-line installer — downloads latest release .deb
+│   └── packaging/    # Debian control file, postinst/postrm, .desktop entry
+├── website/          # this documentation site (Docusaurus)
+├── .github/
+│   ├── workflows/release.yml       # auto-versioned build + release pipeline
+│   ├── workflows/deploy-docs.yml   # builds & deploys this site to GitHub Pages
+│   └── scripts/                    # version computation / bump helpers used by release.yml
+├── VERSION           # single source of truth for the current version
+├── PLAN.md           # build plan / phased feature status
+└── AGENTS.md         # conventions for humans and AI agents working in this repo
+```
+
+## Next steps
+
+- [Protocol reference](/docs/protocol) — the exact WebSocket message format
+- [Ubuntu install](/docs/ubuntu/install) / [macOS install](/docs/macos/install) / [Android install](/docs/android/install)

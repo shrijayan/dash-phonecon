@@ -1,0 +1,76 @@
+---
+id: troubleshooting
+title: Troubleshooting
+sidebar_position: 9
+---
+
+# Troubleshooting
+
+## Nothing happens when my phone rings
+
+1. **Check both devices can reach each other.** They must be on the same
+   local network, or both connected to the same [Tailscale](https://tailscale.com)
+   tailnet. A WiFi network with "client isolation" (common on guest
+   networks and some routers) blocks device-to-device traffic even
+   though both are "on the same WiFi" — use Tailscale in that case.
+2. **Check the IP address typed into the Android app is current.** Home
+   routers often hand out a new local IP after a reboot. On Ubuntu, the
+   tray icon menu shows "This device: `<ip>`:8765" — re-check it matches
+   what's in the Android app.
+3. **Check the tray/menu bar icon is not grey** (grey = not connected).
+   If it's grey, the desktop app is running but nothing is connected to
+   it yet.
+4. **Check the Android app's foreground service is actually running** —
+   open the app, confirm it shows "Connected", and that you haven't
+   force-stopped it or disabled background activity for it in Android's
+   battery settings (some OEM skins aggressively kill background
+   services — look for a "no restrictions" / "unrestricted" battery
+   setting for this app specifically).
+
+## Ubuntu: check the log first
+
+```bash
+tail -100 ~/.local/state/dash-phonecon/dashphone.log
+```
+
+This is the first thing to check for any Ubuntu-side issue — connection
+problems, Bluetooth audio, and media ducking all log here.
+
+## Ubuntu: `.deb` install fails / dependency errors
+
+Make sure you're on Ubuntu 24.04+ (or another Debian-based distro with
+`python3-pyside6.*` in its repos). Run `sudo apt update` first, then
+retry the install — see [Ubuntu install](/docs/ubuntu/install) for exact
+commands.
+
+## Ubuntu: Bluetooth call audio doesn't route
+
+This is [documented as best-effort and depends heavily on your specific
+phone's Bluetooth stack](/docs/ubuntu/bluetooth-audio) — the call popup,
+answer/decline/hang up, and media ducking are all independent of
+Bluetooth and unaffected if this doesn't work. See the [Bluetooth
+audio](/docs/ubuntu/bluetooth-audio) page for the full diagnostic steps
+and the known BlueZ/PipeWire transport bug this project has already run
+into.
+
+## macOS: call audio through my Mac's speakers doesn't work
+
+This is a known, currently unfixable OS-level limitation — see the
+["Why can't macOS route call audio?"](/docs/faq#why-cant-macos-route-call-audio)
+entry in the FAQ. Call control (popup, answer, decline, hang up) is
+unaffected.
+
+## Android: permission prompts / features silently not working
+
+Check [Android permissions](/docs/android/permissions) — several
+features (caller name lookup, call answer/decline/hangup, the
+foreground notification) each depend on a specific permission grant, and
+Android silently no-ops instead of crashing if one is missing.
+
+## Still stuck?
+
+[Open an issue](https://github.com/shrijayan/dash-phonecon/issues) with:
+- which platform (Ubuntu version, or macOS version)
+- your Android version and phone model
+- the relevant lines from `~/.local/state/dash-phonecon/dashphone.log` (Ubuntu) if applicable
+- whether the phone and desktop are on the same LAN or using Tailscale

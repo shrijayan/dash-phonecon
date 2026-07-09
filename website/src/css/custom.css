@@ -1,0 +1,33 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the default Infima variables here. */
+/* Primary color matches the app's own tray/menu-bar icon color when idle
+   (_COLOR_IDLE in linux/src/dashphone/ui/icons.py) so the docs and the
+   app itself feel like the same product. */
+:root {
+  --ifm-color-primary: #1976d2;
+  --ifm-color-primary-dark: #1565c0;
+  --ifm-color-primary-darker: #145bb3;
+  --ifm-color-primary-darkest: #0e4b93;
+  --ifm-color-primary-light: #2087e3;
+  --ifm-color-primary-lighter: #3391e5;
+  --ifm-color-primary-lightest: #5aa5ea;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark'] {
+  --ifm-color-primary: #4a9eec;
+  --ifm-color-primary-dark: #2c8ce8;
+  --ifm-color-primary-darker: #1c82e6;
+  --ifm-color-primary-darkest: #176bbd;
+  --ifm-color-primary-light: #68b0f0;
+  --ifm-color-primary-lighter: #77b8f1;
+  --ifm-color-primary-lightest: #a1cef6;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}

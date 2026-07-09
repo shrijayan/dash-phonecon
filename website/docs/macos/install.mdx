@@ -1,0 +1,61 @@
+---
+id: install
+title: Install on macOS
+sidebar_position: 1
+---
+
+# Install on macOS
+
+There's no prebuilt macOS release yet — build it from source with Swift.
+
+## Prerequisites
+
+- macOS with Xcode Command Line Tools installed (`xcode-select --install`)
+- Swift 6 toolchain
+
+## Build & run
+
+```bash
+git clone https://github.com/shrijayan/dash-phonecon.git
+cd dash-phonecon/macos
+./build.sh
+open build/DashPhone.app
+```
+
+See `macos/README-xcode-setup.md` in the repository for Xcode project
+setup details if you're developing rather than just running it.
+
+## First launch
+
+1. Open the Android app on your phone — see [Install on Android](/docs/android/install).
+2. Enter this Mac's IP address into the Android app's "Mac IP Address" field.
+3. Tap **Start** on Android.
+4. The menu bar icon turns from grey to its connected color.
+
+## Known limitation: Bluetooth call audio
+
+Routing call audio through the Mac's speakers/mic (like Apple's own
+Continuity Calls) is currently **blocked** by a macOS 26 regression —
+`IOBluetooth.framework`'s binary was removed with no public API
+replacement. Call control (popup, answer, decline, hang up) is fully
+functional and unaffected — only audio routing is blocked. See the
+[FAQ](/docs/faq#why-cant-macos-route-call-audio) for the full technical
+detail.
+
+## Project structure
+
+```
+macos/
+└── DashPhone/
+    ├── DashPhoneApp.swift           # App entry, AppDelegate wires all components
+    ├── Network/CallServer.swift     # NWListener WebSocket server on port 8765
+    ├── Models/CallStateViewModel.swift  # Call state machine (idle/ringing/active)
+    ├── Views/CallPopupWindow.swift  # Floating NSPanel (non-activating, top-right)
+    ├── Views/CallPopupView.swift    # SwiftUI incoming call card
+    ├── Views/MenuBarView.swift      # Menu bar icon + dropdown
+    └── Bluetooth/HFPManager.swift   # HFP audio manager (blocked, see FAQ)
+```
+
+See [Architecture](/docs/architecture) for how this compares to the
+Ubuntu client, and [Protocol reference](/docs/protocol) for the shared
+WebSocket message format.

@@ -1,0 +1,95 @@
+---
+id: install
+title: Install on Ubuntu
+sidebar_position: 1
+---
+
+# Install on Ubuntu
+
+## Recommended: one-line install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/shrijayan/dash-phonecon/main/linux/install.sh | bash
+```
+
+This script:
+1. Looks up the latest release on GitHub
+2. Downloads the `.deb` package and verifies its SHA-256 checksum
+3. Installs it with `apt`, which automatically pulls in every dependency
+   (PySide6, `websockets`, etc.) from Ubuntu's own repositories — nothing
+   to install by hand
+4. Prints how to start the app
+
+You'll only be asked for your `sudo` password once, for the `apt install`
+step. To install a specific version instead of the latest:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/shrijayan/dash-phonecon/main/linux/install.sh | bash -s -- --version 1.2.0
+```
+
+**Requirements:** Ubuntu 24.04+ (or another Debian-based distro with
+`python3-pyside6.*` available — this project develops against Ubuntu
+26.04). Not root.
+
+Once it's done, jump to [First-time setup](/docs/ubuntu/first-run).
+
+## Alternative: download the `.deb` manually
+
+If you'd rather not pipe a script into `bash`, grab the `.deb` yourself
+from the [latest release page](https://github.com/shrijayan/dash-phonecon/releases/latest)
+and install it with:
+
+```bash
+sudo apt install ./dash-phonecon_*_all.deb
+```
+
+Both routes install the exact same package — `linux/install.sh` just
+automates finding and verifying the right file.
+
+## Alternative: build from source
+
+For development, or if you want to build the `.deb` yourself instead of
+downloading a prebuilt one:
+
+```bash
+git clone https://github.com/shrijayan/dash-phonecon.git
+cd dash-phonecon/linux
+./build-deb.sh
+sudo apt install ./dist/dash-phonecon_*_all.deb
+```
+
+Or run it directly from source with no packaging at all:
+
+```bash
+cd dash-phonecon/linux
+sudo apt install python3-pyside6.qtcore python3-pyside6.qtgui python3-pyside6.qtwidgets python3-websockets
+PYTHONPATH=src python3 -m dashphone
+```
+
+See [Ubuntu development](/docs/ubuntu/development) for the full local
+dev loop (tests, fake-phone client, logs).
+
+## What gets installed
+
+| What | Where |
+|---|---|
+| The app | `/usr/lib/python3/dist-packages/dashphone/` |
+| The `dash-phonecon` command | `/usr/bin/dash-phonecon` |
+| App-menu entry + icon | via `.desktop` file, standard XDG locations |
+| Autostart entry | `/etc/xdg/autostart/` — starts automatically at next login |
+
+Start it immediately without logging out:
+
+```bash
+dash-phonecon &
+```
+
+## Uninstall
+
+```bash
+sudo apt remove dash-phonecon
+```
+
+## Next step
+
+[First-time setup](/docs/ubuntu/first-run) — connect your phone.
