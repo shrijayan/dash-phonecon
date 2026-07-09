@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from dashphone.bluetooth import HfpManager
 from dashphone.logging_setup import setup_logging
+from dashphone.media_ducker import MediaDucker
 from dashphone.network import CallServer, device_label
 from dashphone.protocol import MessageType
 from dashphone.single_instance import SingleInstanceLock
@@ -43,6 +44,7 @@ def main() -> int:
     server = CallServer()
     controller = CallStateController(send_json=server.send)
     hfp_manager = HfpManager()
+    media_ducker = MediaDucker()
 
     popup = CallPopupWindow(
         on_answer=lambda: controller.send_command(MessageType.ANSWER),
@@ -64,8 +66,10 @@ def main() -> int:
 
         if state.phase is CallPhase.ACTIVE:
             hfp_manager.open_audio()
+            media_ducker.duck_others()
         elif state.phase is CallPhase.IDLE:
             hfp_manager.close_audio()
+            media_ducker.restore_others()
 
     server.message_received.connect(controller.handle_event)
     server.connection_changed.connect(tray.set_connected)

@@ -56,11 +56,18 @@ class HfpManager(QObject):
             self._emit_status(f"Found paired phone: {self._phone.name}")
 
     def open_audio(self) -> None:
-        """Call when CALL_ACTIVE arrives."""
-        if self._phone is None:
+        """Call when CALL_ACTIVE arrives. Safe to call again while already
+        routing (e.g. a duplicate CALL_ACTIVE - confirmed happening from a
+        real Android device) - without this guard, a repeat would re-save
+        current devices via _save_current_devices(), which if the first
+        switch had already completed would wrongly record the phone's own
+        Bluetooth sink as "the device to restore to" once the call ends,
+        and would also start a second parallel retry chain."""
+        if self._phone is None or self._routing_active:
             return
         self._routing_active = True
         self._save_current_devices()
+        self._log_diagnostic_snapshot("CALL_ACTIVE")
         self._attempt_switch(attempt=1)
 
     def close_audio(self) -> None:
@@ -143,3 +150,42 @@ class HfpManager(QObject):
 
     def _emit_status(self, message: str) -> None:
         self.status_changed.emit(message)
+
+    def _log_diagnostic_snapshot(self, trigger: str) -> None:
+        """Best-effort, one-shot audio state dump for diagnosing reports
+        like "I hear the other person twice" or "had to manually turn off
+        Media in Android's Bluetooth settings" - logged once per call so a
+        future debugging session (with the real phone attached) has exact
+        pactl/BlueZ state from the moment the call went active, instead of
+        having to reproduce it live. Never raises - diagnostics must never
+        break the actual call-audio routing above."""
+        if self._phone is None:
+            return
+        try:
+            cards = audio.list_cards()
+            sinks = audio.list_sinks()
+            sources = audio.list_sources()
+            card = audio.find_card_for_mac(cards, self._phone.mac_address)
+            sink = audio.find_endpoint_for_mac(sinks, self._phone.mac_address)
+            source = audio.find_endpoint_for_mac(sources, self._phone.mac_address)
+
+            logger.info(
+                "[diag] %s: default_sink=%r default_source=%r "
+                "phone_card=%r (active_profile=%r, available_profiles=%r) "
+                "phone_sink=%r (state=%r) phone_source=%r (state=%r) "
+                "all_sinks=%r all_sources=%r",
+                trigger,
+                self._saved_sink,
+                self._saved_source,
+                card.get("name") if card else None,
+                card.get("active_profile") if card else None,
+                sorted(card.get("profiles", {}).keys()) if card else None,
+                sink.get("name") if sink else None,
+                sink.get("state") if sink else None,
+                source.get("name") if source else None,
+                source.get("state") if source else None,
+                [entry.get("name") for entry in sinks],
+                [entry.get("name") for entry in sources],
+            )
+        except audio.AudioRouterError as error:
+            logger.debug("[diag] Could not capture audio diagnostic snapshot: %s", error)

@@ -105,11 +105,10 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
     // --- CallEventListener ---
 
     override fun onRinging(number: String, contactName: String?) {
-        val displayName = contactName ?: number.ifEmpty { "Unknown" }
         val payload = JSONObject()
             .put(MessageType.FIELD_TYPE, MessageType.CALL_RINGING)
             .put(MessageType.FIELD_NUMBER, number)
-            .put(MessageType.FIELD_NAME, displayName)
+            .put(MessageType.FIELD_NAME, contactName ?: "")
             .toString()
         runCatching { wsClient.send(payload) }.onFailure { Log.e(TAG, "send failed: ${it.message}", it) }
     }
