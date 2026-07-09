@@ -113,7 +113,13 @@ npm run serve             # smoke-test the production build locally
   Ubuntu 24.04 LTS end users installing the `.deb` may hit the same
   unsatisfiable-dependency problem; this is a known open issue, not
   yet resolved in the package's `Depends:` or the docs' "24.04+"
-  support claim.
+  support claim. Also: the pip wheel doesn't bundle the system shared
+  libraries the apt package would have pulled in transitively via
+  `Depends:` — without `libegl1 libgl1 libxkbcommon0
+  libxkbcommon-x11-0 libxcb-cursor0` installed via apt alongside it,
+  `from PySide6.QtGui import ...` fails with `ImportError: libEGL.so.1:
+  cannot open shared object file` (confirmed via `ldd` on `QtGui.abi3.so`
+  linking against it).
 - **`bump_versions.py`'s "did the substitution actually match" check**
   must test pattern presence directly (e.g. `pattern.search(text)`),
   not compare before/after text equality — a version bump to the same

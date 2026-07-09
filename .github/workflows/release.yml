@@ -148,7 +148,15 @@ jobs:
         # ubuntu-latest runners are still 24.04, so install from PyPI
         # instead (this only affects the build/test environment - the
         # shipped .deb's runtime Depends: is unchanged; see AGENTS.md).
-        run: pip install --break-system-packages PySide6
+        # The apt packages would have pulled in Qt's shared-library deps
+        # transitively; since PySide6 now comes from a pip wheel instead,
+        # those system libs (EGL/GL/xkbcommon/xcb-cursor) must be
+        # installed explicitly or QtGui's import fails with
+        # "libEGL.so.1: cannot open shared object file".
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0
+          pip install --break-system-packages PySide6
 
       - name: Build .deb
         working-directory: linux
@@ -184,8 +192,13 @@ jobs:
 
       - name: Install PySide6
         # See the matching step in build-linux above: not in noble's apt
-        # archives, so this comes from PyPI for CI only.
-        run: pip install --break-system-packages PySide6
+        # archives, so this comes from PyPI for CI only - and needs the
+        # same explicit system-library deps (EGL/GL/xkbcommon/xcb-cursor)
+        # that the apt package would otherwise have pulled in.
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0
+          pip install --break-system-packages PySide6
 
       - name: Run unit tests
         working-directory: linux
