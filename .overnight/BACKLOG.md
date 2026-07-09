@@ -12,34 +12,7 @@ grounded in a fresh re-read of linux/src/dashphone/ against the current
 BACKLOG/state after the bind_failed ship, see state.md for the
 rationale on each)*
 
-1. **Detect and notify on a missed call (RINGING → CALL_ENDED with no
-   CALL_ACTIVE in between).** `state/call_state_controller.py`'s
-   `handle_event` currently treats every `CALL_ENDED` the same way —
-   it just calls `self._set_state(CallState.idle())`, with no
-   distinction between "call was answered and then hung up" and "call
-   rang out / was declined on the phone itself while this app's popup
-   was showing". Since `self._state.phase` still holds the *previous*
-   phase at the top of the `CALL_ENDED` branch (before
-   `_set_state` overwrites it), a one-line check
-   (`self._state.phase is CallPhase.RINGING`) is enough to tell the two
-   apart. Add a new `call_missed = Signal(str, str)` (name, number) on
-   `CallStateController`, emitted right before the idle transition when
-   that condition holds; wire it in `app.py`
-   (`controller.call_missed.connect(...)`) to a new small
-   `TrayIcon.notify_missed_call(name, number)` that fires
-   `showMessage()` (same pattern already proven working under
-   `QT_QPA_PLATFORM=offscreen` by the shipped `bind_failed` feature).
-   Purely additive, no protocol change (still just reacting to the
-   existing `CALL_ENDED` message). Testable entirely in
-   `linux/tests/test_call_state.py` with no Qt/GUI needed: assert the
-   signal fires with the right name/number for
-   `CALL_RINGING → CALL_ENDED`, and does *not* fire for
-   `CALL_RINGING → CALL_ACTIVE → CALL_ENDED` (a normal completed call).
-   Distinct from Proposed item 10 below (`CallState` history/last-call
-   summary) — this is a single real-time notification of one specific
-   event type, not a persistent list; the two could complement each
-   other later but neither depends on the other.
-2. **"Decline" action in the tray dropdown while ringing, not just in
+1. **"Decline" action in the tray dropdown while ringing, not just in
    the popup.** `ui/tray_icon.py` only ever shows `_hangup_action`
    (visible when `state.phase is CallPhase.ACTIVE`) — there is no way
    to decline an incoming call from the tray if the popup
@@ -60,7 +33,7 @@ rationale on each)*
    `on_hangup` invocation: assert `_decline_action` is hidden when
    idle/active, visible when `set_state(CallState.ringing(...))`, and
    that triggering it calls the injected callback.
-3. **Surface `HfpManager.status_changed` in the tray instead of only
+2. **Surface `HfpManager.status_changed` in the tray instead of only
    logging it.** Confirmed via grep across `linux/src/dashphone/` that
    `HfpManager.status_changed` (defined + emitted in
    `bluetooth/hfp_manager.py` — "No paired phone found", "Found paired
@@ -87,7 +60,7 @@ rationale on each)*
 
 *(previous PM cycle's 2 items follow, still open, renumbered)*
 
-4. **Desktop notification on incoming call, not just the popup.**
+3. **Desktop notification on incoming call, not just the popup.**
    `app.py`'s `on_state_changed` already calls `popup.show_call(...)` on
    `CallPhase.RINGING`, but if the popup window is obscured, on another
    workspace, or the compositor doesn't raise it reliably, there's no
@@ -102,7 +75,7 @@ rationale on each)*
    method is invoked with the right args (mock/spy), same pattern as the
    existing state-controller tests — no real OS notification daemon
    needed for the unit test.
-5. **"Copy this device's address" tray action.** `network/local_address.py`'s
+4. **"Copy this device's address" tray action.** `network/local_address.py`'s
    `device_label()` is shown today only as a disabled/inert menu item in
    `ui/tray_icon.py` (`self._device_action = self._disabled_action(device_label)`)
    — the user must manually retype the IP:port into the Android app,
@@ -120,24 +93,24 @@ rationale on each)*
 *(older, still-open ideas from the previous seed batch follow — kept in
 the same "Proposed" section per the format the Engineer persona expects)*
 
-6. **Reconnect banner in the call popup.** `ui/call_popup.py` /
+5. **Reconnect banner in the call popup.** `ui/call_popup.py` /
    `network/call_server.py`: when `connection_changed` emits `False`
    while a call is active, the popup currently has no visual indicator
    the phone link dropped. Add a small "Phone disconnected" banner state.
-7. **Tray icon: show device label on hover only, status in bold.**
+6. **Tray icon: show device label on hover only, status in bold.**
    `ui/tray_icon.py`'s `_status_label()` currently always shows the same
    plain menu item. Minor UX polish, small + safe to try first as a
    warm-up.
-8. **Config file for port override.** `network/call_server.py` hardcodes
+7. **Config file for port override.** `network/call_server.py` hardcodes
    `DEFAULT_PORT = 8765`. Add optional `~/.config/dash-phonecon/config.json`
    read (port override only, default unchanged) so a user with a port
    conflict isn't stuck. Additive, no protocol change.
-9. **Structured logging: log connection duration on disconnect.**
+8. **Structured logging: log connection duration on disconnect.**
    `network/call_server.py`'s `_handle_client` logs "Phone disconnected"
    with no context — add elapsed connection time to the log line using
    `logging_setup.py`'s existing logger. Small, test-friendly (can assert
    on log records).
-10. **`CallState` history / last-call summary.** `state/call_state.py` +
+9. **`CallState` history / last-call summary.** `state/call_state.py` +
    `state/call_state_controller.py`: track the last N call events
    in-memory (caller name/number, duration, timestamp) purely for the
    tray dropdown ("Last call: John Doe, 2m 14s ago") — no persistence
@@ -149,6 +122,7 @@ the same "Proposed" section per the format the Engineer persona expects)*
   (timestamp)`)*
 
 - [7490f21] feat: surface `bind_failed` to the tray icon instead of dropping it silently (2026-07-10 02:56 IST)
+- [82a00f0] feat: notify on missed calls in the tray icon (2026-07-10 03:34 IST)
 
 ## Abandoned
 

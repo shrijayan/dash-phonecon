@@ -132,3 +132,41 @@ log alone.
   so internal item-number references stay accurate.
 - No code under `android/`, `linux/src`, `macos/`, or `website/` was
   touched this cycle — only `.overnight/BACKLOG.md` and this file.
+
+## Engineer cycle 2026-07-10 ~03:34 IST
+
+- Synced fresh from `origin/overnight/auto-research` (`6c61ee8`, the PM's
+  latest 3-item proposal), confirmed no `.overnight/STOP`, read
+  `GUARDRAILS.md` and `AGENTS.md` in full.
+- Took the single topmost `Proposed` item: missed-call detection +
+  notification. Purely additive, Linux-only, no protocol/wire-format
+  change (still just reacting to the existing `CALL_ENDED` message), so
+  no grep-across-three-clients gate applied.
+- Implementation: `CallStateController.handle_event`'s `CALL_ENDED`
+  branch now checks `self._state.phase is CallPhase.RINGING` (the state
+  still holds the *previous* phase at that point, before `_set_state`
+  overwrites it to idle) and, if true, emits a new
+  `call_missed = Signal(str, str)` with `(name, number)` before
+  transitioning to idle. Added `TrayIcon.notify_missed_call(name,
+  number)`, which fires a `showMessage()` "Missed call from X"
+  notification (falls back to number, then "Unknown", if name is
+  blank) — same `showMessage()` plumbing already proven safe under
+  `QT_QPA_PLATFORM=offscreen` by the shipped `bind_failed` feature.
+  Wired `controller.call_missed.connect(on_call_missed)` in `app.py`
+  next to the other signal connections.
+- Added unit tests: 3 new cases in `test_call_state.py` (missed-call
+  fires for `RINGING → CALL_ENDED`; does *not* fire for
+  `RINGING → ACTIVE → CALL_ENDED`, i.e. a normal completed call; does
+  *not* fire for a stray `CALL_ENDED` from idle with no prior call at
+  all) and 3 new cases in `test_tray_icon.py` (`notify_missed_call`
+  doesn't raise with a name, with only a number, and with neither).
+- Ran `cd linux && QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m
+  unittest discover -s tests -t . -v` — 39 tests, all green (was 33
+  before this cycle's 6 new tests).
+- Committed as `82a00f0` (`feat: notify on missed calls in the tray
+  icon`), pushed cleanly to `overnight/auto-research` (no race with the
+  PM persona this cycle — fast-forwarded from `6c61ee8`). Moved the
+  item from `Proposed` to `Shipped` in `BACKLOG.md`, renumbered the
+  remaining 9 Proposed items (previously 2-10, now 1-9).
+- No risk-log entry needed — this is a Linux-only, test-covered,
+  non-protocol change with no unverified/manual-testing-only surface.
