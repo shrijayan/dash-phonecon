@@ -13,30 +13,7 @@ grounded in a fresh re-read of `network/call_server.py`, `__main__.py`,
 BACKLOG/state after the missed-call ship; none of these duplicate the
 9 open items or either shipped feature below.)*
 
-1. **Retry binding the WebSocket port a few times before giving up.**
-   `network/call_server.py`'s `_run_event_loop` calls
-   `asyncio.run(self._serve())` once and, on `OSError` (e.g. the old
-   process's socket hasn't been released yet right after a restart —
-   a real race since `SingleInstanceLock` in `single_instance.py` uses
-   an abstract-namespace socket that's released the instant the old
-   process exits, but the *previous* WebSocket listener's TCP socket
-   can still be in `TIME_WAIT`/lingering a moment longer), immediately
-   emits `bind_failed` and gives up for the process's whole lifetime —
-   confirmed via reading `_serve()`/`start()` that nothing ever retries.
-   Add a small bounded retry loop inside `_run_event_loop` (e.g. 3
-   attempts with a short `time.sleep` backoff between them, all inside
-   the existing background thread so the Qt main thread is untouched)
-   before finally emitting `bind_failed` — purely additive, no
-   signal/API shape change, so `app.py`'s existing
-   `server.bind_failed.connect(on_bind_failed)` wiring needs no edits.
-   Testable by refactoring the retry logic into a small standalone
-   helper (e.g. `_bind_with_retries(host, port, attempts, delay) ->
-   ServerSocket-like`) that a new `linux/tests/test_call_server.py` can
-   call directly with a fake bind function that raises `OSError` N
-   times then succeeds, asserting it retries exactly `attempts` times
-   and only raises after exhausting them — no real socket or asyncio
-   event loop needed for the unit test itself.
-2. **`--verbose`/`-v` CLI flag to enable debug logging.**
+1. **`--verbose`/`-v` CLI flag to enable debug logging.**
    `logging_setup.py`'s `setup_logging(verbose: bool = False)` already
    has the parameter fully wired (sets `DEBUG` vs `INFO` on the root
    logger) but `__main__.py`/`app.py`'s `main()` never exposes it —
@@ -191,6 +168,7 @@ the same "Proposed" section per the format the Engineer persona expects)*
 
 - [7490f21] feat: surface `bind_failed` to the tray icon instead of dropping it silently (2026-07-10 02:56 IST)
 - [82a00f0] feat: notify on missed calls in the tray icon (2026-07-10 03:34 IST)
+- [2b77c2a] feat: retry binding the WebSocket port a few times before giving up (2026-07-10 04:45 IST)
 
 ## Abandoned
 

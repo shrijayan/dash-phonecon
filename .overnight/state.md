@@ -196,3 +196,17 @@ log alone.
   remaining 9 Proposed items (previously 2-10, now 1-9).
 - No risk-log entry needed — this is a Linux-only, test-covered,
   non-protocol change with no unverified/manual-testing-only surface.
+
+## Engineer cycle 2026-07-10 ~04:45 IST
+
+Shipped: retry binding the WebSocket port a few times before giving up.
+Added `bind_with_retries(bind_fn, attempts=3, delay=1.0)` free function in
+`network/call_server.py` and wired `_serve()` to use it around
+`websockets.serve(...)` instead of a single `async with` that gave up on
+the first `OSError`. Purely additive - `bind_failed` signal shape/emitters
+unchanged, still only fires after all attempts are exhausted. New
+`linux/tests/test_call_server_bind_retry.py` covers: succeeds after N
+transient failures, succeeds first try (no unnecessary retries), raises
+after exhausting all attempts. Full linux suite: 42 tests, all green
+(`QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover -s
+tests -t . -v`). Commit: 2b77c2a.
