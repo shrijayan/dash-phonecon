@@ -5,6 +5,34 @@ appends a short entry here regardless of outcome, so the next cycle (and
 the morning summary) has full visibility without re-deriving it from git
 log alone.
 
+## PM cycle 2026-07-10 ~10:xx IST
+
+- Synced to `origin/overnight/auto-research` (`ddea401`, listening-signal
+  now in Shipped, no new Abandoned entries). No `.overnight/STOP` present.
+  Re-read `GUARDRAILS.md`, `AGENTS.md`, and freshly checked
+  `bluetooth/hfp_manager.py`, `state/call_state_controller.py`, and
+  `bluetooth/audio_router.py` to avoid duplicating any of the 25 open
+  Proposed items or the 8 already-Shipped features.
+- Added 3 new items to the top of `BACKLOG.md`'s Proposed section:
+  (1) a bounded automatic retry of `HfpManager.start()`'s initial scan on
+  `DBusException` only, distinct from the already-open manual "Rescan"
+  tray action, to survive a login-session race where this app's
+  autostart unit can launch before `bluetoothd` is ready; (2) log the
+  elapsed duration of an answered call on `CALL_ENDED` in
+  `CallStateController.handle_event()`, since `start_time` is already
+  captured but unused for anything but timer display, leaving no way to
+  audit call length from the log alone; (3) retry transient
+  `subprocess.TimeoutExpired` failures in `audio_router.py`'s
+  `_run_pactl()` (not non-zero exit codes, which are real stable
+  failures) so a single PipeWire hiccup doesn't burn a full attempt out
+  of `HfpManager`'s already-bounded 20-attempt/~20s switch window. All
+  three name specific existing files/functions, are scoped to ~15-30
+  min, and have concrete mock/monkeypatch-based unit-test plans building
+  on existing `linux/tests/` patterns (bind-retry-style fake callables,
+  `assertLogs`, patched `find_paired_phone`/`QTimer.singleShot`).
+- No code under `android/`, `linux/src`, `macos/`, or `website/` was
+  touched this cycle — only `.overnight/BACKLOG.md` and this file.
+
 ## PM cycle 2026-07-10 ~09:xx IST
 
 - Synced to `origin/overnight/auto-research` (535393a, Bluetooth toggle

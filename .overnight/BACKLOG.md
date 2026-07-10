@@ -7,6 +7,83 @@ this file or the codebase.
 
 ## Proposed
 
+*(PM cycle 2026-07-10 ~10:xx IST added the 3 items below to the top —
+grounded in a fresh re-read of `bluetooth/hfp_manager.py`,
+`state/call_state_controller.py`, and `bluetooth/audio_router.py` against
+the current Proposed/Shipped/Abandoned lists; none of these duplicate the
+25 open items or any shipped/abandoned entry — in particular item 1 below
+is deliberately distinct from the already-open "Manual Rescan for Paired
+Phone" tray action (that one is a user-triggered re-scan at any later
+time; item 1 is an *automatic*, bounded startup-only retry to survive a
+login-session race with `bluetoothd`), and item 3 below is distinct from
+the already-open `bind_with_retries`-style ideas since it targets
+`pactl` subprocess calls, not the WebSocket bind.)*
+
+1. **Bounded automatic retry of `HfpManager.start()`'s initial Bluetooth
+   scan, to survive a login-session race with `bluetoothd`.** Confirmed
+   via reading `bluetooth/hfp_manager.py` that `start()` calls
+   `find_paired_phone()` exactly once, and if `paired_phones()` (in
+   `bluetooth/bluez_device_finder.py`) raises `dbus.exceptions.DBusException`
+   because BlueZ/D-Bus isn't reachable yet, `start()` just logs at INFO
+   and gives up permanently for the rest of the app's lifetime — this is
+   a real, plausible ordering on a desktop-autostart setup where this
+   app's session unit can launch before `bluetoothd` finishes
+   initializing, distinct from the already-open manual "Rescan" tray
+   action which only helps if the user notices and clicks it. Add a
+   small bounded retry loop in `start()` (reuse the existing
+   `_MAX_ATTEMPTS`/`_RETRY_INTERVAL_MS`-style constants already used by
+   `_attempt_switch()`, e.g. a new `_STARTUP_SCAN_ATTEMPTS = 5` retried
+   via `QTimer.singleShot`) that only retries on `DBusException`, not on
+   "found zero paired phones" (that's a legitimate, stable end state).
+   Testable in a new/expanded `linux/tests/test_hfp_manager.py`-style
+   test (check if one already exists first) by monkeypatching
+   `find_paired_phone` to raise `DBusException` on the first N calls then
+   succeed, asserting `start()` eventually calls `_emit_status` with the
+   found-phone message — no real BlueZ/D-Bus or QTimer event loop wait
+   needed if `QTimer.singleShot` is patched to invoke its callback
+   synchronously in the test.
+2. **Log the elapsed call duration when a call that was actually
+   answered ends.** Confirmed via reading
+   `state/call_state_controller.py`'s `handle_event()` that the
+   `CALL_ENDED` branch only logs the bare string `"Call ended"` — for a
+   call that reached `CallPhase.ACTIVE` (i.e. was answered, not a missed
+   call, which is already handled by the existing `call_missed` signal),
+   `self._state.start_time` is sitting right there unused, so there is
+   no way to tell from the log alone how long a given call lasted
+   without cross-referencing the RINGING/ACTIVE/ENDED timestamps by
+   hand. Add a branch alongside the existing `phase is CallPhase.RINGING`
+   check: `elif self._state.phase is CallPhase.ACTIVE and
+   self._state.start_time is not None: logger.info("Call ended after %s",
+   ...)` using `datetime.now() - self._state.start_time`. Testable
+   directly in `linux/tests/test_call_state.py` with `assertLogs`,
+   following the exact same `RINGING → CALL_ENDED` /
+   `RINGING → ACTIVE → CALL_ENDED` test-state-machine pattern the
+   existing `call_missed` tests already use — just asserting on the log
+   record text/level instead of (or in addition to) the signal.
+3. **Retry transient `pactl` failures in `bluetooth/audio_router.py`
+   instead of failing the whole switch attempt on one blip.** Confirmed
+   via reading `audio_router.py`'s `_run_pactl()` that any non-zero
+   `pactl` exit code or `subprocess.TimeoutExpired` immediately raises
+   `AudioRouterError`, which `hfp_manager.py`'s `_try_switch_now()`
+   treats as "not ready yet, retry via the outer `_attempt_switch` loop
+   in ~1s" — functionally fine, but every single-blip PipeWire hiccup
+   (e.g. `pactl` momentarily can't reach a busy PipeWire daemon right as
+   Bluetooth profile negotiation finishes) burns a full attempt out of
+   the already-bounded `_MAX_ATTEMPTS = 20`, tightening the real
+   ~20-second window `hfp_manager.py`'s docstring/comments describe.
+   Add a small `run_with_retries(fn, attempts=2, delay=0.2)` free
+   function in `audio_router.py` (same shape/spirit as
+   `network/call_server.py`'s already-shipped `bind_with_retries`, but
+   for a plain sync callable instead of an async one) and wrap just the
+   `_run_pactl()` call site's `subprocess.run` invocation with it, only
+   retrying on `subprocess.TimeoutExpired` (a real transient signal), not
+   on a non-zero exit code (a real, stable failure like "not paired").
+   Testable directly and cheaply in a new
+   `linux/tests/test_audio_router_retry.py` with a fake callable that
+   raises `TimeoutExpired` once then returns — mirrors the existing
+   `test_call_server_bind_retry.py` test shape exactly, no real `pactl`
+   binary needed.
+
 *(PM cycle 2026-07-10 ~09:xx IST added the 3 items below to the top —
 grounded in a fresh re-read of `network/call_server.py`,
 `bluetooth/bluez_device_finder.py`, and `network/local_address.py`
