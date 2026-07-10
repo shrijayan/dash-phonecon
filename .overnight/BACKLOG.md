@@ -19,30 +19,7 @@ login-session race with `bluetoothd`), and item 3 below is distinct from
 the already-open `bind_with_retries`-style ideas since it targets
 `pactl` subprocess calls, not the WebSocket bind.)*
 
-1. **Bounded automatic retry of `HfpManager.start()`'s initial Bluetooth
-   scan, to survive a login-session race with `bluetoothd`.** Confirmed
-   via reading `bluetooth/hfp_manager.py` that `start()` calls
-   `find_paired_phone()` exactly once, and if `paired_phones()` (in
-   `bluetooth/bluez_device_finder.py`) raises `dbus.exceptions.DBusException`
-   because BlueZ/D-Bus isn't reachable yet, `start()` just logs at INFO
-   and gives up permanently for the rest of the app's lifetime — this is
-   a real, plausible ordering on a desktop-autostart setup where this
-   app's session unit can launch before `bluetoothd` finishes
-   initializing, distinct from the already-open manual "Rescan" tray
-   action which only helps if the user notices and clicks it. Add a
-   small bounded retry loop in `start()` (reuse the existing
-   `_MAX_ATTEMPTS`/`_RETRY_INTERVAL_MS`-style constants already used by
-   `_attempt_switch()`, e.g. a new `_STARTUP_SCAN_ATTEMPTS = 5` retried
-   via `QTimer.singleShot`) that only retries on `DBusException`, not on
-   "found zero paired phones" (that's a legitimate, stable end state).
-   Testable in a new/expanded `linux/tests/test_hfp_manager.py`-style
-   test (check if one already exists first) by monkeypatching
-   `find_paired_phone` to raise `DBusException` on the first N calls then
-   succeed, asserting `start()` eventually calls `_emit_status` with the
-   found-phone message — no real BlueZ/D-Bus or QTimer event loop wait
-   needed if `QTimer.singleShot` is patched to invoke its callback
-   synchronously in the test.
-2. **Log the elapsed call duration when a call that was actually
+1. **Log the elapsed call duration when a call that was actually
    answered ends.** Confirmed via reading
    `state/call_state_controller.py`'s `handle_event()` that the
    `CALL_ENDED` branch only logs the bare string `"Call ended"` — for a
@@ -502,6 +479,7 @@ the same "Proposed" section per the format the Engineer persona expects)*
 *(engineer persona appends here, format: `- [SHA] feat: description
   (timestamp)`)*
 
+- [796eb24] feat: retry HfpManager startup scan on transient BlueZ D-Bus errors (2026-07-10 overnight cycle)
 - [1fa5e70] feat: add checkable Bluetooth call-audio routing toggle to tray icon (2026-07-10 overnight cycle)
 - [5114e9d] feat: surface CallServer.listening in the tray status instead of generic "Not Connected" (2026-07-10 overnight cycle)
 - [d1f5539] feat: log the underlying OSError when single-instance lock acquire fails (2026-07-10 overnight cycle)

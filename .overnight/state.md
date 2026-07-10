@@ -440,3 +440,13 @@ priority over the listening label. Full suite: 61/61 passed
 -s tests -t . -v`). No risk-log entry needed — fully test-covered,
 Linux-only, additive/non-protocol change (no wire format change, no
 other-client updates needed).
+
+## Engineer cycle 2026-07-10 (overnight)
+
+Shipped: bounded automatic retry (5 attempts, 1s apart) of
+`HfpManager.start()`'s initial paired-phone scan when BlueZ/D-Bus
+raises `DBusException`, to survive a login-session race with
+`bluetoothd`. Does not retry on a legitimate zero-paired-phones
+result. Added `linux/tests/test_hfp_manager.py` (3 new tests,
+QTimer.singleShot patched to run synchronously). Full linux test
+suite: 64 tests, all green. Commit 796eb24.
