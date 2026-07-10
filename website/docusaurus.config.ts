@@ -29,6 +29,41 @@ const config: Config = {
   onBrokenLinks: 'throw',
   onBrokenAnchors: 'warn',
 
+  headTags: [
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'sitemap',
+        type: 'application/xml',
+        href: '/dash-phonecon/sitemap.xml',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'llms.txt',
+        type: 'text/plain',
+        href: '/dash-phonecon/llms.txt',
+      },
+    },
+    {
+      tagName: 'script',
+      attributes: {type: 'application/ld+json'},
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Dash Phone Con',
+        applicationCategory: 'UtilitiesApplication',
+        operatingSystem: 'Ubuntu, macOS, Android',
+        description:
+          "Answer, decline, and hang up your Android phone's calls from an Ubuntu or macOS desktop over WiFi/LAN.",
+        url: 'https://shrijayan.github.io/dash-phonecon/',
+        offers: {'@type': 'Offer', price: '0', priceCurrency: 'USD'},
+        codeRepository: 'https://github.com/shrijayan/dash-phonecon',
+      }),
+    },
+  ],
+
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
   // may want to replace "en" with "zh-Hans".
@@ -54,8 +89,18 @@ const config: Config = {
     ],
   ],
 
+  // Emits a raw-markdown mirror of every doc (docs/foo -> docs/foo.md) so
+  // AI agents/crawlers and the "Copy page as Markdown" button can fetch
+  // source content directly instead of scraping rendered HTML.
+  plugins: ['./plugins/llms-markdown-plugin.js'],
+
+  clientModules: ['./src/clientModules/copyPageAsMarkdown.js'],
+
   themeConfig: {
     image: 'img/social-card.png',
+    metadata: [
+      {name: 'twitter:card', content: 'summary_large_image'},
+    ],
     colorMode: {
       defaultMode: 'dark',
       respectPrefersColorScheme: true,

@@ -1,0 +1,27 @@
+# Dash Phone Con
+
+> Answer, decline, and hang up your Android phone's calls from an Ubuntu or macOS desktop over WiFi/LAN. One Android app talks the same WebSocket/JSON protocol to two interchangeable desktop clients — no cloud, no account, no telemetry.
+
+Three independent clients share one wire protocol: an Android foreground service (Kotlin) that watches call state, and a Ubuntu tray app (Python/PySide6) or macOS menu bar app (Swift/SwiftUI) that renders the popup and sends ANSWER/REJECT/HANGUP commands back. Source: https://github.com/shrijayan/dash-phonecon
+
+## Docs
+
+- [Overview](https://shrijayan.github.io/dash-phonecon/docs/intro): What it is, what works today, how it works, quick links to get started.
+- [Architecture](https://shrijayan.github.io/dash-phonecon/docs/architecture): How the Android app and desktop clients are structured and communicate.
+- [Protocol reference](https://shrijayan.github.io/dash-phonecon/docs/protocol): The full WebSocket JSON message format (CALL_RINGING, CALL_ACTIVE, CALL_ENDED, ANSWER, REJECT, HANGUP) shared by every client.
+- [Install on Ubuntu](https://shrijayan.github.io/dash-phonecon/docs/ubuntu/install): One-command `.deb` install of the tray app.
+- [First-time setup (Ubuntu)](https://shrijayan.github.io/dash-phonecon/docs/ubuntu/first-run): Pairing the Ubuntu app with the Android app on first run.
+- [Bluetooth call audio (Ubuntu)](https://shrijayan.github.io/dash-phonecon/docs/ubuntu/bluetooth-audio): Best-effort routing of call audio through the PC's speakers/mic.
+- [Development (Ubuntu)](https://shrijayan.github.io/dash-phonecon/docs/ubuntu/development): Building and testing the Python/PySide6 client from source.
+- [Install on Android](https://shrijayan.github.io/dash-phonecon/docs/android/install): Getting the companion APK from GitHub Releases.
+- [Permissions explained (Android)](https://shrijayan.github.io/dash-phonecon/docs/android/permissions): What each requested Android permission is used for.
+- [Development (Android)](https://shrijayan.github.io/dash-phonecon/docs/android/development): Building the Kotlin/Gradle app from source.
+- [Install on macOS](https://shrijayan.github.io/dash-phonecon/docs/macos/install): Building the Swift/SwiftUI menu bar app from source.
+- [Releases & versioning](https://shrijayan.github.io/dash-phonecon/docs/releases): How the automated semver release pipeline works.
+- [Troubleshooting](https://shrijayan.github.io/dash-phonecon/docs/troubleshooting): Fixes for common connection and call-popup problems.
+- [FAQ](https://shrijayan.github.io/dash-phonecon/docs/faq): Why call audio can't fully match AirDroid/KDE Connect, and other common questions.
+
+## Optional
+
+- [Latest release](https://github.com/shrijayan/dash-phonecon/releases/latest): Download the `.deb` or `.apk` directly.
+- [Issues](https://github.com/shrijayan/dash-phonecon/issues): Report a bug or request a feature.
