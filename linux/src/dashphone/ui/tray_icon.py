@@ -33,6 +33,7 @@ class TrayIcon(QSystemTrayIcon):
         self._is_connected = False
         self._state: CallState = CallState.idle()
         self._bind_error: str | None = None
+        self._listening_port: int | None = None
 
         self._status_action = self._disabled_action("Not Connected")
         self._device_action = self._disabled_action(device_label)
@@ -78,6 +79,16 @@ class TrayIcon(QSystemTrayIcon):
 
     def set_connected(self, connected: bool) -> None:
         self._is_connected = connected
+        self._refresh()
+
+    def set_listening(self, port: int) -> None:
+        """Called once the WebSocket server has actually bound its port and
+        started listening (see CallServer.listening). Before this signal
+        existed, the tray showed the exact same "Not Connected" text whether
+        the server hadn't finished starting up yet, was listening fine and
+        just waiting for the phone, or had silently crashed - this gives the
+        "waiting for the phone" state its own distinct, informative label."""
+        self._listening_port = port
         self._refresh()
 
     def set_state(self, state: CallState) -> None:
@@ -143,6 +154,8 @@ class TrayIcon(QSystemTrayIcon):
         if self._bind_error is not None:
             return self._bind_error
         if not self._is_connected:
+            if self._listening_port is not None:
+                return f"Waiting for phone on port {self._listening_port}"
             return "Not Connected"
         if self._state.phase is CallPhase.IDLE:
             return "Connected \u2014 No Active Call"

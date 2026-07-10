@@ -54,5 +54,39 @@ class BindWithRetriesTests(unittest.TestCase):
         self.assertEqual(len(attempts_made), 3)
 
 
+class CallServerListeningSignalTests(unittest.TestCase):
+    def test_listening_signal_emitted_with_port_after_successful_bind(self) -> None:
+        from PySide6.QtCore import QCoreApplication
+
+        from dashphone.network.call_server import CallServer
+
+        app = QCoreApplication.instance() or QCoreApplication([])
+
+        server = CallServer(port=9123)
+        received = []
+        server.listening.connect(received.append)
+
+        async def _fake_bind_fn():
+            class _FakeServer:
+                def close(self):
+                    pass
+
+                async def wait_closed(self):
+                    return None
+
+            return _FakeServer()
+
+        async def run_serve():
+            bound = await bind_with_retries(_fake_bind_fn)
+            server.listening.emit(server.port)
+            return bound
+
+        asyncio.run(run_serve())
+        app.processEvents()
+
+        self.assertEqual(received, [9123])
+
+
+
 if __name__ == "__main__":
     unittest.main()

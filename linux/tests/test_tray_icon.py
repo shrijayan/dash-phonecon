@@ -163,6 +163,24 @@ class TrayIconBindErrorTests(unittest.TestCase):
         tray.set_state(CallState.idle())
         self.assertTrue(tray._bluetooth_audio_action.isEnabled())
 
+    def test_set_listening_shows_waiting_for_phone_status(self) -> None:
+        tray = _make_tray()
+        tray.set_listening(8765)
+        self.assertEqual(tray._status_action.text(), "Waiting for phone on port 8765")
+
+    def test_set_listening_is_superseded_once_connected(self) -> None:
+        tray = _make_tray()
+        tray.set_listening(8765)
+        tray.set_connected(True)
+        self.assertEqual(tray._status_action.text(), "Connected \u2014 No Active Call")
+
+    def test_bind_error_takes_priority_over_listening_status(self) -> None:
+        tray = _make_tray()
+        tray.set_listening(8765)
+        tray.set_bind_error("Port 8765 unavailable")
+        self.assertEqual(tray._status_action.text(), "Port 8765 unavailable")
+
+
 
 if __name__ == "__main__":
     unittest.main()

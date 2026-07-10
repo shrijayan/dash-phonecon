@@ -99,6 +99,7 @@ def main() -> int:
     server.message_received.connect(controller.handle_event)
     server.connection_changed.connect(tray.set_connected)
     server.bind_failed.connect(on_bind_failed)
+    server.listening.connect(tray.set_listening)
     controller.state_changed.connect(on_state_changed)
     controller.call_missed.connect(on_call_missed)
 

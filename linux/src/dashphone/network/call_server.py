@@ -65,6 +65,7 @@ class CallServer(QObject):
     connection_changed = Signal(bool)  # True once a phone connects, False when it disconnects
     message_received = Signal(dict)  # one decoded JSON message from the phone
     bind_failed = Signal(str)  # emitted if the port could not be bound (e.g. already running)
+    listening = Signal(int)  # emitted with the port once the server has actually started listening
 
     def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -126,6 +127,7 @@ class CallServer(QObject):
             return await websockets.serve(self._handle_client, self._host, self._port)
 
         server = await bind_with_retries(_bind)
+        self.listening.emit(self._port)
         try:
             logger.info("Listening for the phone on %s:%s", self._host, self._port)
             await self._stop_event.wait()
