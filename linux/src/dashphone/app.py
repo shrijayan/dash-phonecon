@@ -74,7 +74,6 @@ def main() -> int:
         on_open_log=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_file_path()))),
         on_clear_log=clear_log_file,
         on_toggle_bluetooth_audio=on_toggle_bluetooth_audio,
-        on_dial=controller.dial,
         on_open_contacts=phone_window.show_and_refresh,
     )
 
