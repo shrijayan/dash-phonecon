@@ -512,3 +512,19 @@ suite: 64 tests, all green. Commit 796eb24.
 ## Engineer cycle 2026-07-10 (overnight)
 
 Shipped item 1 from Proposed: logging when CallServer._replace_current_connection() drops a previous connection for a new one. Added logger.info with both remote addresses; new test file linux/tests/test_call_server_replace_connection.py covers the no-log-on-first-connection and logs-on-replacement cases. Full suite: 66/66 tests pass. Commit 42b04f6.
+
+## Engineer cycle 2026-07-10 (overnight, later)
+
+Shipped item 1 from Proposed: stopped `HfpManager._attempt_switch()` from
+repeating identical "pactl not installed" warnings across all 20 retry
+attempts. Added `PactlNotInstalledError(AudioRouterError)` in
+`bluetooth/audio_router.py`, raised specifically on `FileNotFoundError`
+inside `_run_pactl()`. `HfpManager._attempt_switch()` now catches that
+subclass separately from the generic `AudioRouterError` and gives up
+immediately (single warning + status emit) instead of scheduling another
+`QTimer.singleShot`, while transient `AudioRouterError`s still retry up
+to `_MAX_ATTEMPTS` as before. New tests in
+`linux/tests/test_hfp_manager.py`
+(`HfpManagerPactlNotInstalledTests`) assert exactly one attempt/log on
+the permanent-failure path and full retry-loop behavior preserved on the
+transient-failure path. Full suite: 68/68 tests pass. Commit 596ca61.

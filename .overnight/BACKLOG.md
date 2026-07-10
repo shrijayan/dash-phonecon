@@ -23,35 +23,7 @@ existing call-duration/tally/decline-related Proposed item since it's
 about a *second* incoming call arriving before the first one resolves,
 not about the first call's own lifecycle.)*
 
-1. **Stop repeating pactl-permanently-unavailable warnings across every
-   attempt of `HfpManager._attempt_switch()`'s retry loop.** Confirmed via
-   reading `bluetooth/hfp_manager.py`'s `_try_switch_now()` that it calls
-   `audio.find_card_for_mac(audio.list_cards(), ...)` etc. and catches
-   `audio.AudioRouterError` from `_run_pactl()` (defined in
-   `bluetooth/audio_router.py`) — but `_attempt_switch()`'s outer loop
-   (up to `_MAX_ATTEMPTS = 20`, 1s apart) treats every failure the same
-   way, whether it's "phone not visible as an audio device yet" (a real
-   transient condition worth retrying) or "pactl is not installed at all"
-   (a permanent condition per `AudioRouterError`'s own message text,
-   e.g. `"pactl is not installed (package: pulseaudio-utils)"` — this
-   will never change mid-retry-loop). On a machine without
-   `pulseaudio-utils`, every single one of the 20 attempts logs its own
-   `logger.warning("Could not switch audio to phone: %s", error)` line,
-   spamming the rotating log file with 20 identical lines for one
-   permanent, already-diagnosed condition. Have `_try_switch_now()`
-   re-raise (or a small wrapper distinguish) a "pactl missing" case
-   specifically — simplest fix: check `error` message or catch
-   `FileNotFoundError` before it becomes `AudioRouterError` inside
-   `_run_pactl()` and have `_attempt_switch()` treat that one case as an
-   immediate give-up (calls `_emit_status(...)` once, does not schedule
-   another `QTimer.singleShot`) instead of retrying 19 more times.
-   Testable directly in `linux/tests/test_hfp_manager.py` (already
-   exists, uses patched `find_paired_phone`/synchronous
-   `QTimer.singleShot`) by monkeypatching `audio.find_card_for_mac` (or
-   the underlying `_run_pactl`) to always raise the "not installed"
-   variant and asserting `_attempt_switch` is only invoked/logged once,
-   not 20 times, using `assertLogs`.
-2. **"Clear Log File" tray action alongside the existing "Open Log
+1. **"Clear Log File" tray action alongside the existing "Open Log
    File" one.** Confirmed via reading `logging_setup.py` and
    `ui/tray_icon.py` that the rotating file handler
    (`RotatingFileHandler(..., maxBytes=1_000_000, backupCount=3)`) has no
@@ -632,6 +604,7 @@ the same "Proposed" section per the format the Engineer persona expects)*
 - [2b77c2a] feat: retry binding the WebSocket port a few times before giving up (2026-07-10 04:45 IST)
 - [20c83a4] feat: refresh tray device label periodically instead of once at startup (2026-07-10 04:33 IST)
 - [5bfacb7] feat: add "Open Log File" tray action (2026-07-10 cycle)
+- [596ca61] feat: stop repeating pactl-not-installed warnings across HFP retry loop (2026-07-10 overnight cycle)
 
 ## Abandoned
 
