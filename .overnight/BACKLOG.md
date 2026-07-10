@@ -13,28 +13,7 @@ grounded in a fresh re-read of `single_instance.py`, `logging_setup.py`,
 current Proposed/Shipped/Abandoned lists; none of these duplicate the 16
 open items or either shipped/abandoned entry.)*
 
-1. **Log a clear line when `SingleInstanceLock.acquire()` fails, with
-   the reason spelled out, not just a generic warning + `QMessageBox`.**
-   `single_instance.py`'s `acquire()` swallows the `OSError` entirely
-   (`except OSError: candidate.close(); return False`) — confirmed via
-   grep that the only place this result is consumed is `app.py`'s
-   `main()`, which logs a fixed string
-   `"Another instance of %s is already running - exiting"` with no
-   detail from the actual `OSError` (e.g. `EADDRINUSE` vs. a permission
-   problem on the abstract socket namespace, which would be a much more
-   confusing failure to diagnose blind). Change
-   `SingleInstanceLock.acquire()` to store the caught exception on
-   `self.last_error: OSError | None` (set to `None` on success) instead
-   of discarding it, and have `app.py`'s `main()` log
-   `logger.warning("... - exiting (%s)", lock.last_error)` using that
-   stored value. Testable directly and fully in a new
-   `linux/tests/test_single_instance.py`: acquire the lock twice from
-   two separate `SingleInstanceLock()` instances in the same test
-   process (the second `acquire()` call is a real, deterministic
-   `OSError` since abstract-namespace sockets are process-visible, no
-   mocking needed) and assert the second instance's `last_error` is an
-   `OSError` while the first instance's is `None`.
-2. **`--port`/`-p` CLI flag to override the WebSocket listen port, no
+1. **`--port`/`-p` CLI flag to override the WebSocket listen port, no
    config file needed.** `network/call_server.py` hardcodes
    `DEFAULT_PORT = 8765` and `CallServer()`'s constructor already
    accepts no port argument at all (confirmed via grep: `CallServer()`
@@ -337,6 +316,7 @@ the same "Proposed" section per the format the Engineer persona expects)*
 *(engineer persona appends here, format: `- [SHA] feat: description
   (timestamp)`)*
 
+- [d1f5539] feat: log the underlying OSError when single-instance lock acquire fails (2026-07-10 overnight cycle)
 - [7490f21] feat: surface `bind_failed` to the tray icon instead of dropping it silently (2026-07-10 02:56 IST)
 - [82a00f0] feat: notify on missed calls in the tray icon (2026-07-10 03:34 IST)
 - [2b77c2a] feat: retry binding the WebSocket port a few times before giving up (2026-07-10 04:45 IST)

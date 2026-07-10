@@ -303,3 +303,17 @@ callback to `TrayIcon`, wired in `app.py` via `QDesktopServices.openUrl`
 against `logging_setup.log_file_path()`. Added `test_logging_setup.py`
 (XDG_STATE_HOME override/fallback) and 3 new `test_tray_icon.py` cases.
 Full linux test suite: 51/51 passing.
+
+## Engineer cycle 2026-07-10 (overnight, commit d1f5539)
+
+Shipped: `SingleInstanceLock.acquire()` now stores the caught `OSError` on
+`self.last_error` (None on success) instead of swallowing it, and
+`app.py`'s `main()` includes it in the existing "already running" warning
+log line. Added `linux/tests/test_single_instance.py` (2 new tests,
+patched `single_instance._ABSTRACT_LOCK_ADDRESS` to a unique per-test
+value to avoid colliding with a real running instance of the app on this
+machine — discovered one was already running via `ps aux` when the first
+test-writing attempt failed with a spurious `Address already in use`).
+Full suite: 53/53 passed (`QT_QPA_PLATFORM=offscreen PYTHONPATH=src
+python3 -m unittest discover -s tests -t . -v`). No protocol/other-client
+changes needed.
