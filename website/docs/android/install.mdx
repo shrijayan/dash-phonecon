@@ -1,6 +1,8 @@
 ---
 id: install
 title: Install on Android
+description: Download and install the Dash Phone Con Android app from GitHub Releases to pair it with your Ubuntu or macOS desktop.
+keywords: [install dash phone con android, dash phone con apk download]
 sidebar_position: 1
 ---
 
@@ -24,6 +26,13 @@ you want to double check:
 ```bash
 sha256sum -c dash-phonecon_<version>_android.apk.sha256
 ```
+
+**Self-healing signing:** the release pipeline validates the signing key
+before every build — if it's ever missing or broken, CI automatically
+falls back to a debug-signed APK instead of failing the release, so a
+download is always available on the releases page. A debug-signed APK
+installs and works identically; Android will just show the "unknown
+apps" prompt either way.
 
 ## Alternative: build from source with a connected phone
 

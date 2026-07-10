@@ -1,6 +1,8 @@
 ---
 id: troubleshooting
 title: Troubleshooting
+description: Fixes for common Dash Phone Con problems — phone not connecting, calls not showing, and network issues between Android and desktop.
+keywords: [dash phone con troubleshooting, android phone not connecting, call popup not showing]
 sidebar_position: 9
 ---
 
@@ -38,10 +40,22 @@ problems, Bluetooth audio, and media ducking all log here.
 
 ## Ubuntu: `.deb` install fails / dependency errors
 
-Make sure you're on Ubuntu 24.04+ (or another Debian-based distro with
-`python3-pyside6.*` in its repos). Run `sudo apt update` first, then
-retry the install — see [Ubuntu install](/docs/ubuntu/install) for exact
-commands.
+The installer is self-healing for the common case: if `python3-pyside6.*`
+isn't available in your distro's apt repos, the package automatically
+falls back to a private virtualenv with PySide6/websockets installed via
+pip — no action needed on your part. If the install still fails:
+
+1. Run `sudo apt update` first, then retry — see
+   [Ubuntu install](/docs/ubuntu/install) for exact commands.
+2. If apt reports an unrelated broken package blocking the transaction,
+   that's a pre-existing issue with that other package, not this one —
+   installing directly with `sudo dpkg -i --force-confnew dash-phonecon_*.deb`
+   bypasses apt's dependency resolver for just this package.
+3. If the fallback virtualenv itself failed to build (e.g. no network
+   during install), re-run it manually once you have connectivity:
+   `sudo /usr/lib/dash-phonecon/venv/bin/pip install PySide6 websockets`
+   (or just `sudo apt install --reinstall dash-phonecon` to retry from
+   scratch).
 
 ## Ubuntu: Bluetooth call audio doesn't route
 

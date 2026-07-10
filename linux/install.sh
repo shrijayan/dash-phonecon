@@ -86,7 +86,20 @@ if curl -fsSL -o "${DEB_FILE}.sha256" "$SHA_URL" 2>/dev/null; then
 fi
 
 echo "==> Installing (you may be asked for your sudo password)..."
-sudo apt-get install -y "$DEB_FILE"
+if ! sudo apt-get install -y "$DEB_FILE"; then
+  echo "==> First install attempt failed - refreshing apt package lists and retrying..." >&2
+  sudo apt-get update -qq || true
+  if ! sudo apt-get install -y --fix-broken "$DEB_FILE"; then
+    echo "Install failed even after retrying. This can happen if python3-pyside6.*" >&2
+    echo "isn't published for your distro release - the package still installs and" >&2
+    echo "falls back to a private virtualenv with pip on first run in that case." >&2
+    echo "If apt itself refuses to proceed (e.g. an unrelated broken package is" >&2
+    echo "stuck), try:" >&2
+    echo "  sudo dpkg -i --force-confnew \"$DEB_FILE\"" >&2
+    echo "  sudo apt-get install -f" >&2
+    exit 1
+  fi
+fi
 
 echo ""
 echo "Done! Dash Phone Con ${TAG_NAME:-} is installed."

@@ -1,14 +1,28 @@
-#!/usr/bin/python3
-"""Thin launcher installed to /usr/bin/dash-phonecon by the .deb package.
+#!/bin/bash
+# Thin launcher installed to /usr/bin/dash-phonecon by the .deb package.
+#
+# Self-healing: tries the system python3 first (fast path, used when
+# python3-pyside6.* was actually available and installed via apt). If the
+# system interpreter can't import PySide6/websockets (e.g. postinst had to
+# fall back to a private virtualenv because this distro's archives don't
+# ship python3-pyside6.*), transparently re-execs using that virtualenv's
+# interpreter instead. Either way the user just runs `dash-phonecon`.
+set -e
 
-Kept as a tiny shim on purpose: all real logic lives in the dashphone
-package (installed to /usr/lib/python3/dist-packages/), so there is
-exactly one place to read/change the app's behaviour.
-"""
+VENV_PYTHON="/usr/lib/dash-phonecon/venv/bin/python3"
 
-import sys
+if python3 -c "import PySide6, websockets" >/dev/null 2>&1; then
+    exec python3 -c "import sys; from dashphone.app import main; sys.exit(main())" "$@"
+fi
 
-from dashphone.app import main
+if [ -x "$VENV_PYTHON" ] && "$VENV_PYTHON" -c "import PySide6, websockets" >/dev/null 2>&1; then
+    exec env PYTHONPATH="/usr/lib/python3/dist-packages:${PYTHONPATH:-}" "$VENV_PYTHON" \
+        -c "import sys; from dashphone.app import main; sys.exit(main())" "$@"
+fi
 
-if __name__ == "__main__":
-    sys.exit(main())
+echo "dash-phonecon: required dependencies (PySide6, websockets) are missing" >&2
+echo "and no working environment was found. Try:" >&2
+echo "  sudo apt install --reinstall dash-phonecon" >&2
+echo "or, if that doesn't help (no network during install):" >&2
+echo "  sudo /usr/lib/dash-phonecon/venv/bin/pip install PySide6 websockets" >&2
+exit 1
