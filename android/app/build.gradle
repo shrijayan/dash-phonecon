@@ -10,7 +10,7 @@ plugins {
 // fall back to the auto-generated debug key so `./gradlew assembleRelease`
 // still works out of the box for contributors with no extra setup.
 def releaseKeystorePath = System.getenv("RELEASE_KEYSTORE_PATH")
-def hasReleaseSigning = releaseKeystorePath != null && file(releaseKeystorePath).exists()
+def hasReleaseSigning = releaseKeystorePath != null && !releaseKeystorePath.isEmpty() && file(releaseKeystorePath).exists()
 
 android {
     namespace 'com.dash.phonecon'
