@@ -47,6 +47,7 @@ class TrayIcon(QSystemTrayIcon):
         on_clear_log: Callable[[], None] | None = None,
         on_toggle_bluetooth_audio: Callable[[bool], None] | None = None,
         on_dial: Callable[[str], None] | None = None,
+        on_open_contacts: Callable[[], None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -68,6 +69,11 @@ class TrayIcon(QSystemTrayIcon):
         self._dial_action = QAction("Dial\u2026")
         self._on_dial = on_dial
         self._dial_action.triggered.connect(self._prompt_and_dial)
+
+        self._contacts_action = QAction("Contacts\u2026")
+        self._on_open_contacts = on_open_contacts
+        if on_open_contacts is not None:
+            self._contacts_action.triggered.connect(lambda: on_open_contacts())
 
         self._open_log_action = QAction("Open Log File")
         if on_open_log is not None:
@@ -93,6 +99,7 @@ class TrayIcon(QSystemTrayIcon):
         menu.addAction(self._timer_action)
         menu.addAction(self._hangup_action)
         menu.addAction(self._dial_action)
+        menu.addAction(self._contacts_action)
         menu.addSeparator()
         menu.addAction(self._open_log_action)
         menu.addAction(self._clear_log_action)

@@ -30,11 +30,23 @@ class MessageType(str, Enum):
     PONG = "PONG"
     DIAL = "DIAL"  # places an outgoing call to FIELD_NUMBER via the phone's TelecomManager
 
+    # Contacts CRUD - bidirectional, always initiated by this app, phone replies
+    REQUEST_CONTACTS = "REQUEST_CONTACTS"  # this app -> phone: "send me your full contact list"
+    CONTACTS_RESULT = "CONTACTS_RESULT"  # phone -> this app: FIELD_CONTACTS = [{id, name, number}, ...]
+    CONTACT_ADD = "CONTACT_ADD"  # this app -> phone: create a contact from FIELD_NAME/FIELD_NUMBER
+    CONTACT_UPDATE = "CONTACT_UPDATE"  # this app -> phone: FIELD_CONTACT_ID + new FIELD_NAME/FIELD_NUMBER
+    CONTACT_DELETE = "CONTACT_DELETE"  # this app -> phone: delete FIELD_CONTACT_ID
+    CONTACT_OP_RESULT = "CONTACT_OP_RESULT"  # phone -> this app: FIELD_SUCCESS + optional FIELD_ERROR
+
 
 # JSON field keys (kept as plain constants, matching FIELD_* in MessageType.kt)
 FIELD_TYPE = "type"
 FIELD_NUMBER = "number"
 FIELD_NAME = "name"
+FIELD_CONTACTS = "contacts"
+FIELD_CONTACT_ID = "contact_id"
+FIELD_SUCCESS = "success"
+FIELD_ERROR = "error"
 
 
 def parse_message_type(raw: dict) -> MessageType | None:

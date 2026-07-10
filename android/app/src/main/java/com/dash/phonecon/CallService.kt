@@ -106,6 +106,34 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
                     Log.w(TAG, "DIAL received with no number - ignoring")
                 }
             }
+            MessageType.REQUEST_CONTACTS -> mainHandler.post { sendContactsList() }
+            MessageType.CONTACT_ADD -> mainHandler.post {
+                val name = json.optString(MessageType.FIELD_NAME)
+                val number = json.optString(MessageType.FIELD_NUMBER)
+                runCatching { ContactsRepository.add(this, name, number) }
+                    .fold(
+                        onSuccess = { sendContactOpResult(true, null); sendContactsList() },
+                        onFailure = { sendContactOpResult(false, it.message) }
+                    )
+            }
+            MessageType.CONTACT_UPDATE -> mainHandler.post {
+                val id = json.optString(MessageType.FIELD_CONTACT_ID)
+                val name = json.optString(MessageType.FIELD_NAME)
+                val number = json.optString(MessageType.FIELD_NUMBER)
+                runCatching { ContactsRepository.update(this, id, name, number) }
+                    .fold(
+                        onSuccess = { ok -> sendContactOpResult(ok, if (ok) null else "Contact not found"); sendContactsList() },
+                        onFailure = { sendContactOpResult(false, it.message) }
+                    )
+            }
+            MessageType.CONTACT_DELETE -> mainHandler.post {
+                val id = json.optString(MessageType.FIELD_CONTACT_ID)
+                runCatching { ContactsRepository.delete(this, id) }
+                    .fold(
+                        onSuccess = { ok -> sendContactOpResult(ok, if (ok) null else "Contact not found"); sendContactsList() },
+                        onFailure = { sendContactOpResult(false, it.message) }
+                    )
+            }
             else -> Log.w(TAG, "Unknown command type: $type")
         }
     }
@@ -188,6 +216,28 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
             val extras = android.os.Bundle()
             telecomManager.placeCall(uri, extras)
         }.onFailure { Log.e(TAG, "Failed to place outgoing call: ${it.message}") }
+    }
+
+    // --- Contacts CRUD ---
+
+    private fun sendContactsList() {
+        runCatching {
+            val contacts = ContactsRepository.listAll(this)
+            val payload = JSONObject()
+                .put(MessageType.FIELD_TYPE, MessageType.CONTACTS_RESULT)
+                .put(MessageType.FIELD_CONTACTS, ContactsRepository.toJsonArray(contacts))
+                .toString()
+            wsClient.send(payload)
+        }.onFailure { Log.e(TAG, "Failed to read contacts: ${it.message}", it) }
+    }
+
+    private fun sendContactOpResult(success: Boolean, error: String?) {
+        val payload = JSONObject()
+            .put(MessageType.FIELD_TYPE, MessageType.CONTACT_OP_RESULT)
+            .put(MessageType.FIELD_SUCCESS, success)
+            .apply { if (error != null) put(MessageType.FIELD_ERROR, error) }
+            .toString()
+        runCatching { wsClient.send(payload) }.onFailure { Log.e(TAG, "send failed: ${it.message}", it) }
     }
 
     // --- Notifications ---

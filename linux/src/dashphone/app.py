@@ -23,7 +23,8 @@ from dashphone.network import CallServer, device_label
 from dashphone.protocol import MessageType
 from dashphone.single_instance import SingleInstanceLock
 from dashphone.state import CallPhase, CallState, CallStateController
-from dashphone.ui import CallPopupWindow, TrayIcon
+from dashphone.state.contacts_controller import ContactsController
+from dashphone.ui import CallPopupWindow, ContactsWindow, TrayIcon
 
 APP_NAME = "Dash Phone Con"
 
@@ -49,6 +50,7 @@ def main() -> int:
 
     server = CallServer()
     controller = CallStateController(send_json=server.send)
+    contacts_controller = ContactsController(send_json=server.send)
     hfp_manager = HfpManager()
     media_ducker = MediaDucker()
 
@@ -57,6 +59,8 @@ def main() -> int:
         on_decline=lambda: controller.send_command(MessageType.REJECT),
     )
     bluetooth_audio_enabled = True
+
+    contacts_window = ContactsWindow(contacts_controller, on_dial=controller.dial)
 
     def on_toggle_bluetooth_audio(enabled: bool) -> None:
         nonlocal bluetooth_audio_enabled
@@ -70,6 +74,7 @@ def main() -> int:
         on_clear_log=clear_log_file,
         on_toggle_bluetooth_audio=on_toggle_bluetooth_audio,
         on_dial=controller.dial,
+        on_open_contacts=contacts_window.show_and_refresh,
     )
 
     def on_state_changed(state: CallState) -> None:
@@ -99,6 +104,7 @@ def main() -> int:
         tray.notify_missed_call(name, number)
 
     server.message_received.connect(controller.handle_event)
+    server.message_received.connect(contacts_controller.handle_event)
     server.connection_changed.connect(tray.set_connected)
     server.bind_failed.connect(on_bind_failed)
     server.listening.connect(tray.set_listening)

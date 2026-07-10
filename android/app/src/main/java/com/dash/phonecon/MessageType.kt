@@ -14,8 +14,20 @@ object MessageType {
     const val PONG = "PONG"
     const val DIAL = "DIAL"
 
+    // Contacts CRUD
+    const val REQUEST_CONTACTS = "REQUEST_CONTACTS"
+    const val CONTACTS_RESULT = "CONTACTS_RESULT"
+    const val CONTACT_ADD = "CONTACT_ADD"
+    const val CONTACT_UPDATE = "CONTACT_UPDATE"
+    const val CONTACT_DELETE = "CONTACT_DELETE"
+    const val CONTACT_OP_RESULT = "CONTACT_OP_RESULT"
+
     // JSON field keys
     const val FIELD_TYPE = "type"
     const val FIELD_NUMBER = "number"
     const val FIELD_NAME = "name"
+    const val FIELD_CONTACTS = "contacts"
+    const val FIELD_CONTACT_ID = "contact_id"
+    const val FIELD_SUCCESS = "success"
+    const val FIELD_ERROR = "error"
 }
