@@ -346,3 +346,19 @@ test-writing attempt failed with a spurious `Address already in use`).
 Full suite: 53/53 passed (`QT_QPA_PLATFORM=offscreen PYTHONPATH=src
 python3 -m unittest discover -s tests -t . -v`). No protocol/other-client
 changes needed.
+
+## Engineer cycle 2026-07-10 (overnight, commit 1fa5e70)
+
+Shipped: checkable "Route Call Audio via Bluetooth" tray toggle. Added
+`TrayIcon`'s `on_toggle_bluetooth_audio` constructor param and a new
+checkable `QAction` (defaults checked) beneath "Open Log File". In
+`app.py`, guarded the existing `hfp_manager.open_audio()`/`close_audio()`
+calls in `on_state_changed` behind a `bluetooth_audio_enabled` closure
+flag flipped by the new callback — `hfp_manager.py` itself untouched, no
+protocol change. Added 4 new `test_tray_icon.py` cases: default-checked
+state, toggle invokes callback with correct bool on each trigger, safe
+without a callback, and stays enabled/visible regardless of connection
+state. Full suite: 57/57 passed
+(`QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover
+-s tests -t . -v`). No risk-log entry needed — fully test-covered,
+Linux-only, non-protocol change.

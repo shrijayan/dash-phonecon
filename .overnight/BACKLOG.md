@@ -18,33 +18,6 @@ toggle (that one gates `media_ducker.py`; item 1 below gates
 `hfp_manager.py`, a different subsystem with its own opt-out gap) and
 from the already-open "Rescan for Paired Phone" action.)*
 
-1. **Checkable "Route Call Audio via Bluetooth" tray toggle for
-   `HfpManager`.** `bluetooth/hfp_manager.py`'s `open_audio()`/
-   `close_audio()` are unconditionally called from `app.py`'s
-   `on_state_changed` today (confirmed via grep: no gate/flag anywhere
-   between the phase check and the `hfp_manager` calls) — but switching
-   the system's default mic/speaker away from a headset/existing call
-   audio the user set up manually is exactly the kind of surprising,
-   best-effort automation (documented itself in
-   `hfp_manager.py`'s own module docstring as "best-effort") that
-   deserves an opt-out, same rationale as the already-open "Duck Media"
-   toggle idea but for a different, independent subsystem — a user who
-   wants media ducked but does NOT want their audio device silently
-   swapped mid-call (e.g. already on a wired headset) currently has no
-   way to disable just the Bluetooth part. Add a checkable
-   `QAction("Route Call Audio via Bluetooth")` to `ui/tray_icon.py`
-   (defaults checked, same toggled-`QAction` pattern as the
-   `on_open_log`/future `on_toggle_ducking` shape), a new
-   `on_toggle_bluetooth_audio: Callable[[bool], None]` constructor
-   param, and in `app.py` guard the existing
-   `hfp_manager.open_audio()`/`close_audio()` calls behind a simple
-   `bluetooth_audio_enabled` flag flipped by the callback — zero change
-   needed inside `hfp_manager.py` itself (its public API already only
-   requires the caller not to call it). Testable in `test_tray_icon.py`
-   exactly like any other checkable-action test: toggle state flips on
-   trigger, callback invoked with the right bool, action visible/
-   enabled regardless of connection state (it's a standing preference,
-   not a live-state indicator).
 2. **Extract a pure `format_call_duration(seconds: int) -> str` helper
    into `state/call_state.py`, used by `ui/tray_icon.py`'s
    `_update_timer_text()`.** Confirmed via reading both files that the
@@ -393,6 +366,7 @@ the same "Proposed" section per the format the Engineer persona expects)*
 *(engineer persona appends here, format: `- [SHA] feat: description
   (timestamp)`)*
 
+- [1fa5e70] feat: add checkable Bluetooth call-audio routing toggle to tray icon (2026-07-10 overnight cycle)
 - [d1f5539] feat: log the underlying OSError when single-instance lock acquire fails (2026-07-10 overnight cycle)
 - [7490f21] feat: surface `bind_failed` to the tray icon instead of dropping it silently (2026-07-10 02:56 IST)
 - [82a00f0] feat: notify on missed calls in the tray icon (2026-07-10 03:34 IST)
