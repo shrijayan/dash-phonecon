@@ -12,16 +12,19 @@ from __future__ import annotations
 import logging
 import sys
 
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from dashphone.bluetooth import HfpManager
-from dashphone.logging_setup import setup_logging
+from dashphone.logging_setup import clear_log_file, log_file_path, setup_logging
 from dashphone.media_ducker import MediaDucker
 from dashphone.network import CallServer, device_label
 from dashphone.protocol import MessageType
 from dashphone.single_instance import SingleInstanceLock
 from dashphone.state import CallPhase, CallState, CallStateController
-from dashphone.ui import CallPopupWindow, TrayIcon
+from dashphone.state.contacts_controller import ContactsController
+from dashphone.ui import CallPopupWindow, ContactsWindow, TrayIcon
 
 APP_NAME = "Dash Phone Con"
 
@@ -43,6 +46,7 @@ def main() -> int:
 
     server = CallServer()
     controller = CallStateController(send_json=server.send)
+    contacts_controller = ContactsController(send_json=server.send)
     hfp_manager = HfpManager()
     media_ducker = MediaDucker()
 
@@ -50,10 +54,23 @@ def main() -> int:
         on_answer=lambda: controller.send_command(MessageType.ANSWER),
         on_decline=lambda: controller.send_command(MessageType.REJECT),
     )
+    bluetooth_audio_enabled = True
+
+    contacts_window = ContactsWindow(contacts_controller, on_dial=controller.dial)
+
+    def on_toggle_bluetooth_audio(enabled: bool) -> None:
+        nonlocal bluetooth_audio_enabled
+        bluetooth_audio_enabled = enabled
+
     tray = TrayIcon(
         on_hangup=lambda: controller.send_command(MessageType.HANGUP),
         on_quit=app.quit,
         device_label=device_label(),
+        on_open_log=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_file_path()))),
+        on_clear_log=clear_log_file,
+        on_toggle_bluetooth_audio=on_toggle_bluetooth_audio,
+        on_dial=controller.dial,
+        on_open_contacts=contacts_window.show_and_refresh,
     )
 
     def on_state_changed(state: CallState) -> None:
@@ -72,6 +89,7 @@ def main() -> int:
             media_ducker.restore_others()
 
     server.message_received.connect(controller.handle_event)
+    server.message_received.connect(contacts_controller.handle_event)
     server.connection_changed.connect(tray.set_connected)
     controller.state_changed.connect(on_state_changed)
 
