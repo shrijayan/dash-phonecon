@@ -1,5 +1,7 @@
-"""Unit tests for normalize_dial_number (pure logic, no Qt needed) and the
-tray's dial action wiring."""
+"""Unit tests for normalize_dial_number (pure logic, no Qt needed) - still
+used by PhoneWindow's merged dial entry now that the standalone tray
+"Dial..." menu action and PhoneWindow Dialer tab have been removed (dialing
+lives in the Contacts tab's dial-entry row instead, see phone_window.py)."""
 
 from __future__ import annotations
 
@@ -9,11 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from PySide6.QtWidgets import QApplication
-
-from dashphone.ui.tray_icon import TrayIcon, normalize_dial_number
-
-_app = QApplication.instance() or QApplication(sys.argv[:1])
+from dashphone.ui.tray_icon import normalize_dial_number
 
 
 class NormalizeDialNumberTests(unittest.TestCase):
@@ -31,25 +29,6 @@ class NormalizeDialNumberTests(unittest.TestCase):
 
     def test_no_digits_returns_empty(self) -> None:
         self.assertEqual(normalize_dial_number("+---"), "")
-
-
-def _make_tray(on_dial=None) -> TrayIcon:
-    return TrayIcon(
-        on_hangup=lambda: None,
-        on_quit=lambda: None,
-        device_label="This device: 192.168.1.5:8765",
-        on_dial=on_dial,
-    )
-
-
-class TrayIconDialActionTests(unittest.TestCase):
-    def test_dial_action_present_in_menu(self) -> None:
-        tray = _make_tray()
-        self.assertIn(tray._dial_action, tray.contextMenu().actions())
-
-    def test_dial_action_enabled_by_default(self) -> None:
-        tray = _make_tray()
-        self.assertTrue(tray._dial_action.isEnabled())
 
 
 if __name__ == "__main__":

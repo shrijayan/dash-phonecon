@@ -11,7 +11,7 @@ from typing import Callable
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QInputDialog, QLineEdit, QMenu, QSystemTrayIcon, QWidget
+from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QWidget
 
 from dashphone.state import CallPhase, CallState
 from dashphone.ui.icons import icon_for_connection_and_state
@@ -46,7 +46,6 @@ class TrayIcon(QSystemTrayIcon):
         on_open_log: Callable[[], None] | None = None,
         on_clear_log: Callable[[], None] | None = None,
         on_toggle_bluetooth_audio: Callable[[bool], None] | None = None,
-        on_dial: Callable[[str], None] | None = None,
         on_open_contacts: Callable[[], None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
@@ -65,10 +64,6 @@ class TrayIcon(QSystemTrayIcon):
         self._hangup_action = QAction("Hang Up")
         self._hangup_action.setVisible(False)
         self._hangup_action.triggered.connect(lambda: on_hangup())
-
-        self._dial_action = QAction("Dial\u2026")
-        self._on_dial = on_dial
-        self._dial_action.triggered.connect(self._prompt_and_dial)
 
         self._contacts_action = QAction("\u260E Phone \u0026 Contacts\u2026")
         self._on_open_contacts = on_open_contacts
@@ -98,7 +93,6 @@ class TrayIcon(QSystemTrayIcon):
         menu.addSeparator()
         menu.addAction(self._timer_action)
         menu.addAction(self._hangup_action)
-        menu.addAction(self._dial_action)
         menu.addAction(self._contacts_action)
         menu.addSeparator()
         menu.addAction(self._open_log_action)
@@ -167,17 +161,6 @@ class TrayIcon(QSystemTrayIcon):
         happened at all unless they noticed it live."""
         who = name or number or "Unknown"
         self.showMessage(APP_DISPLAY_NAME, f"Missed call from {who}", QSystemTrayIcon.MessageIcon.Information)
-
-    def _prompt_and_dial(self) -> None:
-        """Ask for a number via a small input dialog, then hand it to on_dial.
-
-        Blank/whitespace-only input is silently ignored (user hit Cancel or
-        typed nothing) rather than sending an empty DIAL to the phone.
-        """
-        number, ok = QInputDialog.getText(None, "Dial", "Phone number:", QLineEdit.EchoMode.Normal, "")
-        cleaned = normalize_dial_number(number)
-        if ok and cleaned and self._on_dial is not None:
-            self._on_dial(cleaned)
 
     @staticmethod
     def _disabled_action(text: str) -> QAction:

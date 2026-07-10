@@ -1,5 +1,6 @@
-"""The main Phone window: a single tabbed surface (Dialer / Contacts /
-Call Log) replacing the separate ad-hoc dialogs. Styled to match the
+"""The main Phone window: a single tabbed surface (Contacts, with a merged
+dial-any-number row, / Call Log) replacing the separate ad-hoc dialogs and
+the old standalone Dialer tab. Styled to match the
 CallPopupWindow's dark card aesthetic instead of looking like a raw,
 unstyled Qt form - this is the app's actual "phone & contacts" UI, not
 a debug utility.
@@ -14,7 +15,6 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QFormLayout,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
-    QSizePolicy,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -61,9 +60,6 @@ QPushButton:pressed { background: #2a2b30; }
 #dialButton:hover, #primaryAction:hover { background: #388e3c; }
 #deleteButton { background: #c62828; }
 #deleteButton:hover { background: #d32f2f; }
-#dialpadDisplay { font-size: 24px; font-weight: 600; padding: 12px; }
-#keypadButton { font-size: 18px; font-weight: 700; min-height: 44px; background: #2b2b2e; }
-#keypadButton:hover { background: #34353c; }
 #emptyState { color: #6f6f75; font-size: 13px; padding: 24px; }
 #contactName { font-size: 13px; font-weight: 600; color: #f0f0f0; }
 #contactNumber { font-size: 12px; color: #9a9a9e; }
@@ -76,7 +72,6 @@ QPushButton:pressed { background: #2a2b30; }
 
 _CALL_TYPE_ICON = {"Incoming": "\u2199", "Outgoing": "\u2197", "Missed": "\u2716"}
 _CALL_TYPE_COLOR = {"Incoming": "#4caf50", "Outgoing": "#5e9bff", "Missed": "#e57373"}
-_KEYPAD_ROWS = (("1", "2", "3"), ("4", "5", "6"), ("7", "8", "9"), ("*", "0", "#"))
 
 
 def _initials(name: str, number: str) -> str:
@@ -130,59 +125,32 @@ class _EditContactDialog(QDialog):
         return self._name_field.text().strip(), self._number_field.text().strip()
 
 
-class _DialerTab(QWidget):
+class _DialEntryRow(QWidget):
+    """Compact manual-number dial row, merged into the Contacts tab so
+    there's one "Phone" surface instead of a separate Dialer tab."""
+
     def __init__(self, on_dial: Callable[[str], None], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._on_dial = on_dial
 
-        self._display = QLineEdit()
-        self._display.setObjectName("dialpadDisplay")
-        self._display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._display.setPlaceholderText("Enter a number\u2026")
-        self._display.returnPressed.connect(self._dial)
+        self._entry = QLineEdit()
+        self._entry.setPlaceholderText("Enter a number to dial\u2026")
+        self._entry.returnPressed.connect(self._dial)
 
-        keypad = QGridLayout()
-        keypad.setSpacing(8)
-        for row_index, row in enumerate(_KEYPAD_ROWS):
-            for col_index, digit in enumerate(row):
-                button = QPushButton(digit)
-                button.setObjectName("keypadButton")
-                button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-                button.clicked.connect(lambda _checked=False, d=digit: self._append_digit(d))
-                keypad.addWidget(button, row_index, col_index)
-
-        call_button = QPushButton("\u260E  Call")
+        call_button = QPushButton("\u260E Call")
         call_button.setObjectName("dialButton")
         call_button.clicked.connect(self._dial)
 
-        clear_button = QPushButton("\u232b  Clear")
-        clear_button.clicked.connect(self._clear)
-
-        button_row = QHBoxLayout()
-        button_row.addWidget(clear_button)
-        button_row.addWidget(call_button)
-
-        layout = QVBoxLayout(self)
-        layout.setSpacing(14)
-        layout.addWidget(self._display)
-        layout.addLayout(keypad)
-        layout.addLayout(button_row)
-        layout.addStretch()
-
-    def _append_digit(self, digit: str) -> None:
-        self._display.setText(self._display.text() + digit)
-        self._display.setFocus()
-
-    def _clear(self) -> None:
-        if self._display.text():
-            self._display.setText(self._display.text()[:-1])
-        self._display.setFocus()
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(self._entry)
+        row.addWidget(call_button)
 
     def _dial(self) -> None:
-        number = self._display.text().strip()
+        number = self._entry.text().strip()
         if number:
             self._on_dial(number)
-            self._display.clear()
+            self._entry.clear()
 
 
 def _contact_row_widget(contact: Contact) -> QWidget:
@@ -250,6 +218,8 @@ class _ContactsTab(QWidget):
         self._on_dial = on_dial
         self._contacts: list[Contact] = []
 
+        self._dial_entry = _DialEntryRow(on_dial)
+
         self._search_box = QLineEdit()
         self._search_box.setPlaceholderText("\U0001f50d  Search name or number\u2026")
         self._search_box.textChanged.connect(self._refresh_list)
@@ -280,6 +250,7 @@ class _ContactsTab(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
+        layout.addWidget(self._dial_entry)
         layout.addWidget(self._search_box)
         layout.addWidget(self._list)
         layout.addWidget(self._empty_label)
@@ -391,7 +362,7 @@ class _CallLogTab(QWidget):
 
 
 class PhoneWindow(QWidget):
-    """The app's main "phone & contacts" surface - Dialer / Contacts / Call Log."""
+    """The app's main "phone & contacts" surface - Contacts (dial + CRUD) / Call Log."""
 
     def __init__(
         self,
@@ -412,7 +383,6 @@ class PhoneWindow(QWidget):
         header.setObjectName("headerTitle")
 
         tabs = QTabWidget()
-        tabs.addTab(_DialerTab(on_dial), "\u2328  Dialer")
         tabs.addTab(_ContactsTab(contacts_controller, on_dial), "\U0001f465  Contacts")
         tabs.addTab(_CallLogTab(call_log_controller, on_dial), "\U0001f553  Call Log")
         self._tabs = tabs
