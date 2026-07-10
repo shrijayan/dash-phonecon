@@ -74,6 +74,14 @@ class CallStateController(QObject):
         """Send a bare {"type": "..."} command to the phone (ANSWER/REJECT/HANGUP/PONG)."""
         self._send_json({"type": message_type.value})
 
+    def dial(self, number: str) -> None:
+        """Ask the phone to place an outgoing call to ``number`` (dial-from-desktop).
+
+        Kept separate from send_command since DIAL carries a payload field
+        (FIELD_NUMBER) rather than being a bare {"type": ...} message.
+        """
+        self._send_json({"type": MessageType.DIAL.value, FIELD_NUMBER: number})
+
     def _set_state(self, new_state: CallState) -> None:
         self._state = new_state
         self.state_changed.emit(new_state)

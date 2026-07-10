@@ -98,6 +98,14 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
             MessageType.PONG -> wsClient.resetPingTimer()
             MessageType.ANSWER -> mainHandler.post { answerCall() }
             MessageType.REJECT, MessageType.HANGUP -> mainHandler.post { endCall() }
+            MessageType.DIAL -> {
+                val number = json.optString(MessageType.FIELD_NUMBER)
+                if (number.isNotEmpty()) {
+                    mainHandler.post { dialCall(number) }
+                } else {
+                    Log.w(TAG, "DIAL received with no number - ignoring")
+                }
+            }
             else -> Log.w(TAG, "Unknown command type: $type")
         }
     }
@@ -171,6 +179,15 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
         val method = telephonyManager.javaClass.getDeclaredMethod("endCall")
         method.isAccessible = true
         method.invoke(telephonyManager)
+    }
+
+    private fun dialCall(number: String) {
+        runCatching {
+            val telecomManager = getSystemService(TelecomManager::class.java)
+            val uri = android.net.Uri.fromParts("tel", number, null)
+            val extras = android.os.Bundle()
+            telecomManager.placeCall(uri, extras)
+        }.onFailure { Log.e(TAG, "Failed to place outgoing call: ${it.message}") }
     }
 
     // --- Notifications ---

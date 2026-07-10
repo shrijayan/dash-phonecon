@@ -12,6 +12,7 @@ object MessageType {
     const val REJECT = "REJECT"
     const val HANGUP = "HANGUP"
     const val PONG = "PONG"
+    const val DIAL = "DIAL"
 
     // JSON field keys
     const val FIELD_TYPE = "type"

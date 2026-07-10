@@ -68,6 +68,7 @@ def main() -> int:
         device_label=device_label(),
         on_open_log=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_file_path()))),
         on_toggle_bluetooth_audio=on_toggle_bluetooth_audio,
+        on_dial=controller.dial,
     )
 
     def on_state_changed(state: CallState) -> None:

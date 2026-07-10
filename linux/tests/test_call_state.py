@@ -77,6 +77,10 @@ class CallStateControllerTests(unittest.TestCase):
         self.controller.send_command(MessageType.ANSWER)
         self.assertEqual(self.sent_messages, [{"type": "ANSWER"}])
 
+    def test_dial_emits_dial_type_with_number(self) -> None:
+        self.controller.dial("+15551234567")
+        self.assertEqual(self.sent_messages, [{"type": "DIAL", "number": "+15551234567"}])
+
     def test_state_changed_signal_fires_on_every_transition(self) -> None:
         seen_phases: list[CallPhase] = []
         self.controller.state_changed.connect(lambda state: seen_phases.append(state.phase))

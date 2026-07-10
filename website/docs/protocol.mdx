@@ -28,6 +28,7 @@ always the **client**, dialing whichever IP address you typed into it.
 | `{ "type": "REJECT" }` | Declines the ringing call. |
 | `{ "type": "HANGUP" }` | Ends the active call. |
 | `{ "type": "PONG" }` | Keepalive reply. |
+| `{ "type": "DIAL", "number": "+15551234567" }` | Places an outgoing call to `number` via `TelecomManager.placeCall()`. Requires the `CALL_PHONE` runtime permission on the phone. |
 
 ## Connection lifecycle
 

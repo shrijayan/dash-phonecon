@@ -28,6 +28,7 @@ class MessageType(str, Enum):
     REJECT = "REJECT"
     HANGUP = "HANGUP"
     PONG = "PONG"
+    DIAL = "DIAL"  # places an outgoing call to FIELD_NUMBER via the phone's TelecomManager
 
 
 # JSON field keys (kept as plain constants, matching FIELD_* in MessageType.kt)
