@@ -480,3 +480,7 @@ suite: 64 tests, all green. Commit 796eb24.
   fixtures, extended `_fake_bus`).
 - No code under `android/`, `linux/src`, `macos/`, or `website/` was
   touched this cycle — only `.overnight/BACKLOG.md` and this file.
+
+## Engineer cycle 2026-07-10 (overnight)
+
+Shipped item 1 from Proposed: logging when CallServer._replace_current_connection() drops a previous connection for a new one. Added logger.info with both remote addresses; new test file linux/tests/test_call_server_replace_connection.py covers the no-log-on-first-connection and logs-on-replacement cases. Full suite: 66/66 tests pass. Commit 42b04f6.

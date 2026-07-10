@@ -13,31 +13,7 @@ grounded in a fresh re-read of `network/call_server.py`,
 current Proposed/Shipped/Abandoned lists; none of these duplicate the 28
 open items or any shipped/abandoned entry.)*
 
-1. **Log when a new phone connection replaces an existing one in
-   `CallServer._replace_current_connection()`.** Confirmed via reading
-   `network/call_server.py` that when a second connection arrives while
-   one is already active, `_replace_current_connection()` closes the
-   `previous` connection but never logs this — and the closed-previous
-   connection's own `_handle_client()` `finally` block explicitly skips
-   its usual `"Phone disconnected"` log line + `connection_changed.emit(False)`
-   because `self._current_connection is connection` is already `False`
-   by then (it now points at the new one). Net effect: a phone
-   reconnecting from a new IP (e.g. after switching from Wi-Fi to
-   Tailscale, or a stale zombie connection lingering) produces *zero*
-   log output about the replacement — only the generic "Phone connected
-   from X" line for the new one, with no record that an old connection
-   was silently dropped. Add one `logger.info("Replacing existing phone
-   connection from %s with new connection from %s", previous.remote_address,
-   connection.remote_address)` inside the `if previous is not None and
-   previous is not connection:` branch. Testable directly in a new
-   `linux/tests/test_call_server_bind_retry.py`-adjacent test (or a new
-   `test_call_server_replace_connection.py`) with two fake objects
-   exposing `.remote_address` and an async `.close()`, calling
-   `_replace_current_connection` twice via `asyncio.run` and asserting
-   the log record appears only on the second call (via `assertLogs`) —
-   same fake-connection-object pattern already used for
-   `test_call_server_bind_retry.py`.
-2. **Filter out `Blocked` Bluetooth devices in
+1. **Filter out `Blocked` Bluetooth devices in
    `bluez_device_finder.paired_phones()`.** Confirmed via reading BlueZ's
    `org.bluez.Device1` interface (and this file's own `_to_phone()`) that
    a device the user has explicitly blocked via `bluetoothctl block
@@ -554,6 +530,7 @@ the same "Proposed" section per the format the Engineer persona expects)*
 *(engineer persona appends here, format: `- [SHA] feat: description
   (timestamp)`)*
 
+- [42b04f6] feat: log when a new phone connection replaces an existing one (2026-07-10 overnight cycle)
 - [796eb24] feat: retry HfpManager startup scan on transient BlueZ D-Bus errors (2026-07-10 overnight cycle)
 - [1fa5e70] feat: add checkable Bluetooth call-audio routing toggle to tray icon (2026-07-10 overnight cycle)
 - [5114e9d] feat: surface CallServer.listening in the tray status instead of generic "Not Connected" (2026-07-10 overnight cycle)
