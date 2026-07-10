@@ -450,3 +450,33 @@ raises `DBusException`, to survive a login-session race with
 result. Added `linux/tests/test_hfp_manager.py` (3 new tests,
 QTimer.singleShot patched to run synchronously). Full linux test
 suite: 64 tests, all green. Commit 796eb24.
+
+## PM cycle 2026-07-10 ~11:xx IST
+
+- Synced to `origin/overnight/auto-research` (`512c9e5`, HfpManager
+  startup-scan-retry now in Shipped, no new Abandoned entries). No
+  `.overnight/STOP` present. Re-read `GUARDRAILS.md`, `AGENTS.md`, and
+  freshly checked `network/call_server.py`,
+  `bluetooth/bluez_device_finder.py`, and `media_ducker.py` to avoid
+  duplicating any of the 28 open Proposed items or the 9 already-Shipped
+  features.
+- Added 3 new items to the top of `BACKLOG.md`'s Proposed section:
+  (1) log when `CallServer._replace_current_connection()` silently drops
+  a previous phone connection for a new one, since today there is zero
+  log trace of the replacement (the old connection's own disconnect log
+  is suppressed by the existing `is connection` identity check); (2)
+  filter out `Blocked` BlueZ devices in
+  `bluez_device_finder.paired_phones()`, since only `Paired` is checked
+  today and a device the user explicitly blocked can still be selected
+  for Bluetooth call-audio routing; (3) guard
+  `MediaDucker.duck_others()`'s `list_player_services(bus)` call with the
+  same `try/except DBusException` already used for `SessionBus()`
+  construction one line above, since an uncaught exception there would
+  propagate out of a Qt signal handler mid-call, violating this module's
+  own best-effort philosophy. All three name specific existing
+  files/functions, are scoped to ~15-30 min, and have concrete
+  mock/fixture-based unit-test plans building on existing
+  `linux/tests/` patterns (fake connection objects, plain dict
+  fixtures, extended `_fake_bus`).
+- No code under `android/`, `linux/src`, `macos/`, or `website/` was
+  touched this cycle — only `.overnight/BACKLOG.md` and this file.

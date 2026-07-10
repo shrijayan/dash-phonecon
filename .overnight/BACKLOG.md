@@ -7,6 +7,81 @@ this file or the codebase.
 
 ## Proposed
 
+*(PM cycle 2026-07-10 ~11:xx IST added the 3 items below to the top —
+grounded in a fresh re-read of `network/call_server.py`,
+`bluetooth/bluez_device_finder.py`, and `media_ducker.py` against the
+current Proposed/Shipped/Abandoned lists; none of these duplicate the 28
+open items or any shipped/abandoned entry.)*
+
+1. **Log when a new phone connection replaces an existing one in
+   `CallServer._replace_current_connection()`.** Confirmed via reading
+   `network/call_server.py` that when a second connection arrives while
+   one is already active, `_replace_current_connection()` closes the
+   `previous` connection but never logs this — and the closed-previous
+   connection's own `_handle_client()` `finally` block explicitly skips
+   its usual `"Phone disconnected"` log line + `connection_changed.emit(False)`
+   because `self._current_connection is connection` is already `False`
+   by then (it now points at the new one). Net effect: a phone
+   reconnecting from a new IP (e.g. after switching from Wi-Fi to
+   Tailscale, or a stale zombie connection lingering) produces *zero*
+   log output about the replacement — only the generic "Phone connected
+   from X" line for the new one, with no record that an old connection
+   was silently dropped. Add one `logger.info("Replacing existing phone
+   connection from %s with new connection from %s", previous.remote_address,
+   connection.remote_address)` inside the `if previous is not None and
+   previous is not connection:` branch. Testable directly in a new
+   `linux/tests/test_call_server_bind_retry.py`-adjacent test (or a new
+   `test_call_server_replace_connection.py`) with two fake objects
+   exposing `.remote_address` and an async `.close()`, calling
+   `_replace_current_connection` twice via `asyncio.run` and asserting
+   the log record appears only on the second call (via `assertLogs`) —
+   same fake-connection-object pattern already used for
+   `test_call_server_bind_retry.py`.
+2. **Filter out `Blocked` Bluetooth devices in
+   `bluez_device_finder.paired_phones()`.** Confirmed via reading BlueZ's
+   `org.bluez.Device1` interface (and this file's own `_to_phone()`) that
+   a device the user has explicitly blocked via `bluetoothctl block
+   <mac>` (or their desktop Bluetooth settings) still reports `Paired:
+   true` and the same `Class`/phone-detection bits — `paired_phones()`
+   only checks `Paired`, never `Blocked`, so a phone the user
+   deliberately blacklisted from connecting can still be selected by
+   `find_paired_phone()` and have call audio silently routed to/from it,
+   directly contradicting the user's explicit block action. Add
+   `if bool(device.get("Blocked", False)): continue` right alongside the
+   existing `Paired`/`Class` checks in the `for interfaces in
+   managed_objects.values():` loop. Testable directly in a new
+   `linux/tests/test_bluez_device_finder.py` (check if one already
+   exists first — none did as of this cycle) using plain dict fixtures
+   for `managed_objects` (no real D-Bus needed, mirrors the existing
+   `test_audio_router_parsing.py` pattern): a blocked-but-paired phone
+   dict is excluded from `paired_phones()`'s result; an unblocked one is
+   still included.
+3. **Guard `MediaDucker.duck_others()`'s `list_player_services(bus)` call
+   against a mid-scan `DBusException`.** Confirmed via reading
+   `media_ducker.py` that `duck_others()` wraps only the initial
+   `dbus.SessionBus()` construction in `try/except DBusException`, but
+   the very next line, `for service_name in list_player_services(bus):`,
+   calls `bus.list_names()` with no exception handling at all — if the
+   session bus becomes unreachable *between* `SessionBus()` succeeding
+   and `list_names()` being called (e.g. the D-Bus daemon restarts
+   mid-call-setup, a real if rare timing window), this raises an
+   uncaught `DBusException` straight out of `duck_others()`, which
+   `app.py`'s `on_state_changed` calls synchronously from a Qt signal
+   handler — an uncaught exception there is a much worse failure mode
+   than the "best-effort, never breaks the call" philosophy this same
+   module's docstring promises (`get_playback_status`/`pause_player`
+   already individually catch `DBusException`, just not this one call
+   site). Wrap the `list_player_services(bus)` call (or the whole loop)
+   in the same `try/except DBusException` pattern already used two
+   lines above, logging via `logger.info` and returning early exactly
+   like the existing `SessionBus()` failure branch does. Testable
+   directly in `linux/tests/test_media_ducker.py` by making the fake
+   bus's `list_names` raise `DBusException` (extend `_fake_bus` with an
+   optional `list_names_error` param) and asserting `duck_others()`
+   does not raise — same "must not raise" assertion style the existing
+   `test_duck_others_disabled_gracefully_when_session_bus_unreachable`
+   test already uses for the `SessionBus()` failure case.
+
 *(PM cycle 2026-07-10 ~10:xx IST added the 3 items below to the top —
 grounded in a fresh re-read of `bluetooth/hfp_manager.py`,
 `state/call_state_controller.py`, and `bluetooth/audio_router.py` against
