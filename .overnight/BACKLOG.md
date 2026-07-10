@@ -7,6 +7,83 @@ this file or the codebase.
 
 ## Proposed
 
+*(PM cycle 2026-07-10 ~08:xx IST added the 3 items below to the top —
+grounded in a fresh re-read of `bluetooth/hfp_manager.py`,
+`ui/tray_icon.py`, `state/call_state.py`, and
+`state/call_state_controller.py` against the current
+Proposed/Shipped/Abandoned lists; none of these duplicate the 19 open
+items or any shipped/abandoned entry — in particular this is
+deliberately distinct from the already-open "Duck Media During Calls"
+toggle (that one gates `media_ducker.py`; item 1 below gates
+`hfp_manager.py`, a different subsystem with its own opt-out gap) and
+from the already-open "Rescan for Paired Phone" action.)*
+
+1. **Checkable "Route Call Audio via Bluetooth" tray toggle for
+   `HfpManager`.** `bluetooth/hfp_manager.py`'s `open_audio()`/
+   `close_audio()` are unconditionally called from `app.py`'s
+   `on_state_changed` today (confirmed via grep: no gate/flag anywhere
+   between the phase check and the `hfp_manager` calls) — but switching
+   the system's default mic/speaker away from a headset/existing call
+   audio the user set up manually is exactly the kind of surprising,
+   best-effort automation (documented itself in
+   `hfp_manager.py`'s own module docstring as "best-effort") that
+   deserves an opt-out, same rationale as the already-open "Duck Media"
+   toggle idea but for a different, independent subsystem — a user who
+   wants media ducked but does NOT want their audio device silently
+   swapped mid-call (e.g. already on a wired headset) currently has no
+   way to disable just the Bluetooth part. Add a checkable
+   `QAction("Route Call Audio via Bluetooth")` to `ui/tray_icon.py`
+   (defaults checked, same toggled-`QAction` pattern as the
+   `on_open_log`/future `on_toggle_ducking` shape), a new
+   `on_toggle_bluetooth_audio: Callable[[bool], None]` constructor
+   param, and in `app.py` guard the existing
+   `hfp_manager.open_audio()`/`close_audio()` calls behind a simple
+   `bluetooth_audio_enabled` flag flipped by the callback — zero change
+   needed inside `hfp_manager.py` itself (its public API already only
+   requires the caller not to call it). Testable in `test_tray_icon.py`
+   exactly like any other checkable-action test: toggle state flips on
+   trigger, callback invoked with the right bool, action visible/
+   enabled regardless of connection state (it's a standing preference,
+   not a live-state indicator).
+2. **Extract a pure `format_call_duration(seconds: int) -> str` helper
+   into `state/call_state.py`, used by `ui/tray_icon.py`'s
+   `_update_timer_text()`.** Confirmed via reading both files that the
+   `minutes, seconds = divmod(elapsed, 60); f"{minutes:02d}:{seconds:02d}"`
+   formatting logic lives inline inside `TrayIcon._update_timer_text()`
+   with zero direct unit-test coverage of the formatting math itself
+   (existing `test_tray_icon.py` tests only cover visibility/wiring, not
+   the numeric-to-string conversion for edge cases like 0 seconds, exactly
+   60 seconds, or anything past 59:59 e.g. a 65-minute call — `>59` minutes
+   currently just keeps growing the minutes field unbounded, which is
+   probably fine but is currently untested/undocumented behavior). Move
+   the one-line formula into `state/call_state.py` as a standalone
+   function (no Qt import needed, keeping it in the already-Qt-free
+   state module per that file's own module docstring philosophy), have
+   `_update_timer_text()` call it. Testable directly and cheaply in
+   `linux/tests/test_call_state.py` with plain integers — no Qt/display
+   needed at all: `format_call_duration(0) == "00:00"`,
+   `format_call_duration(65) == "01:05"`,
+   `format_call_duration(3661) == "61:01"`.
+3. **Deduplicate repeated "Ignoring unknown/unsupported message" log
+   warnings in `CallStateController.handle_event()`.** Confirmed via
+   reading `state/call_state_controller.py` that the final `else`
+   branch calls `logger.warning(...)` on every single call with an
+   unrecognized/missing `type` field, with no rate limiting or
+   deduplication — if a future phone-side protocol version (or a flaky
+   connection replaying stale bytes) sends the same unknown message
+   type repeatedly, this can flood the rotating log file
+   `logging_setup.py` maintains, pushing genuinely useful recent
+   history (the last real call) out of the `_BACKUP_COUNT = 3`-file
+   rotation window faster than it should. Add a small `_last_unknown_type: str | None`
+   instance attribute; only log at `WARNING` when the unknown/missing
+   type differs from the last one seen, otherwise log at `DEBUG` (still
+   visible with the already-open `--verbose` flag idea for real
+   debugging, just not spamming the default `INFO` log). Testable
+   directly in `linux/tests/test_call_state.py` with `assertLogs`:
+   two consecutive messages with the same bogus `"type"` value produce
+   exactly one `WARNING` record and one `DEBUG` record; a third message
+   with a *different* bogus type produces a fresh `WARNING`.
+
 *(PM cycle 2026-07-10 ~07:10 IST added the 3 items below to the top —
 grounded in a fresh re-read of `single_instance.py`, `logging_setup.py`,
 `network/local_address.py`, `ui/call_popup.py`, and `app.py` against the

@@ -5,6 +5,35 @@ appends a short entry here regardless of outcome, so the next cycle (and
 the morning summary) has full visibility without re-deriving it from git
 log alone.
 
+## PM cycle 2026-07-10 ~08:xx IST
+
+- Synced to `origin/overnight/auto-research` (b1f439c, single-instance
+  error logging now in Shipped, no new Abandoned entries). No
+  `.overnight/STOP` present. Re-read `GUARDRAILS.md`, `AGENTS.md`, and
+  freshly checked `bluetooth/hfp_manager.py`, `ui/tray_icon.py`,
+  `state/call_state.py`, `state/call_state_controller.py`, `app.py`,
+  and `linux/tests/` to avoid duplicating any of the 19 open Proposed
+  items or the 6 already-Shipped features.
+- Added 3 new items to the top of `BACKLOG.md`'s Proposed section:
+  (1) a checkable "Route Call Audio via Bluetooth" tray toggle gating
+  `hfp_manager.py`'s `open_audio()`/`close_audio()` calls in `app.py`
+  — a distinct opt-out from the already-open "Duck Media" toggle,
+  since a user may want media ducked but not want their audio device
+  silently swapped mid-call; (2) extract the inline
+  minutes:seconds formatting in `TrayIcon._update_timer_text()` into a
+  pure `format_call_duration()` helper in the already-Qt-free
+  `state/call_state.py`, closing a real gap where that formatting math
+  has zero direct unit-test coverage today; (3) deduplicate repeated
+  "Ignoring unknown/unsupported message" WARNING log spam in
+  `CallStateController.handle_event()`'s final `else` branch, since a
+  flaky connection or future protocol mismatch could otherwise flood
+  the 3-file rotating log and push out genuinely useful recent history.
+  All three name specific existing files/functions, are scoped to
+  ~15-30 min, and have concrete pure-logic/mock-based unit-test plans
+  building on existing `linux/tests/` patterns.
+- No code under `android/`, `linux/src`, `macos/`, or `website/` was
+  touched this cycle — only `.overnight/BACKLOG.md` and this file.
+
 ## PM cycle 2026-07-10 ~07:10 IST
 
 - Synced to `origin/overnight/auto-research` (Open Log File now in
