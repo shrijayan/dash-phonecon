@@ -221,15 +221,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends python3-dbus
 
-      - name: Install PySide6
+      - name: Install PySide6 + websockets
         # See the matching step in build-linux above: not in noble's apt
         # archives, so this comes from PyPI for CI only - and needs the
         # same explicit system-library deps (EGL/GL/xkbcommon/xcb-cursor)
-        # that the apt package would otherwise have pulled in.
+        # that the apt package would otherwise have pulled in. websockets
+        # also isn't installed anywhere else in this job (only PySide6 was),
+        # so tests importing dashphone.network.call_server failed here with
+        # ModuleNotFoundError: websockets - install it explicitly too.
         run: |
           sudo apt-get install -y --no-install-recommends \
             libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0
-          pip install --break-system-packages PySide6
+          pip install --break-system-packages PySide6 websockets
 
       - name: Run unit tests
         working-directory: linux
