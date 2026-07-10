@@ -5,6 +5,36 @@ appends a short entry here regardless of outcome, so the next cycle (and
 the morning summary) has full visibility without re-deriving it from git
 log alone.
 
+## PM cycle 2026-07-10 ~09:xx IST
+
+- Synced to `origin/overnight/auto-research` (535393a, Bluetooth toggle
+  now in Shipped, no new Abandoned entries). No `.overnight/STOP`
+  present. Re-read `GUARDRAILS.md`, `AGENTS.md`, and freshly checked
+  `network/call_server.py`, `bluetooth/bluez_device_finder.py`, and
+  `network/local_address.py` to avoid duplicating any of the 22 open
+  Proposed items or the 7 already-Shipped features.
+- Added 3 new items to the top of `BACKLOG.md`'s Proposed section:
+  (1) a `CallServer.listening` signal fired after a successful bind,
+  wired to a new `TrayIcon.set_listening()` so the tray distinguishes
+  "not started yet"/"crashed silently" from "listening, waiting for
+  phone" instead of showing the same generic "Not Connected" text in
+  all three cases; (2) a deterministic secondary sort key (phone name)
+  in `bluez_device_finder.find_paired_phone()`'s tie-break, since the
+  current `sort(key=lambda phone: phone.connected)` leaves ties in
+  BlueZ's D-Bus dict iteration order — non-deterministic across daemon
+  restarts on a machine paired with more than one phone; (3) fall back
+  through multiple candidate local IPs in `local_address.py` instead of
+  trusting a single UDP-connect route guess, since a VPN/Tailscale
+  interface (a connectivity path this same file's docstring explicitly
+  supports) can silently become the reported "default route" and thus
+  an address the phone can never actually reach on the LAN. All three
+  name specific existing files/functions, are scoped to ~15-30 min, and
+  have concrete pure-logic/mock-based unit-test plans building on
+  existing `linux/tests/` patterns (bind-retry fake, plain dataclass
+  fixtures, monkeypatched socket).
+- No code under `android/`, `linux/src`, `macos/`, or `website/` was
+  touched this cycle — only `.overnight/BACKLOG.md` and this file.
+
 ## PM cycle 2026-07-10 ~08:xx IST
 
 - Synced to `origin/overnight/auto-research` (b1f439c, single-instance

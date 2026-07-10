@@ -7,6 +7,88 @@ this file or the codebase.
 
 ## Proposed
 
+*(PM cycle 2026-07-10 ~09:xx IST added the 3 items below to the top —
+grounded in a fresh re-read of `network/call_server.py`,
+`bluetooth/bluez_device_finder.py`, and `network/local_address.py`
+against the current Proposed/Shipped/Abandoned lists; none of these
+duplicate the 22 open items or any shipped/abandoned entry — in
+particular this is deliberately distinct from the already-open
+`--port`/`-p` CLI flag idea (that one is about *choosing* the port,
+item 1 below is about *knowing when the server actually started
+listening on it*) and from the already-open "Rescan for Paired Phone"
+action (that one re-runs discovery on demand; item 2 below fixes a
+determinism bug in the discovery result itself, independent of when
+it's triggered).)*
+
+1. **Add a `CallServer.listening = Signal(int)` fired after a
+   successful bind, and surface it in the tray status instead of the
+   generic "Not Connected."** Confirmed via reading `_serve()` in
+   `network/call_server.py` that after `bind_with_retries(_bind)`
+   succeeds, nothing is emitted at all — only `bind_failed` exists for
+   the failure path, so today the tray's `_status_label()` in
+   `ui/tray_icon.py` shows the exact same "Not Connected" text whether
+   the server (a) hasn't finished starting up yet, (b) is listening
+   fine and just waiting for the phone to connect, or (c) silently
+   crashed after logging `"WebSocket server stopped"` with no
+   `bind_failed` (the bare `except Exception` branch in
+   `_run_event_loop` only logs, never signals). Emit
+   `self.listening.emit(self._port)` right after `bind_with_retries`
+   returns in `_serve()`, add `TrayIcon.set_listening(port: int)`
+   storing a `_listening_port: int | None` that `_status_label()` uses
+   to render "Waiting for phone on port {port}" instead of the bare
+   "Not Connected" once listening has actually started, and wire
+   `server.listening.connect(tray.set_listening)` in `app.py`.
+   Testable directly in `linux/tests/test_call_server_bind_retry.py`
+   style (assert `listening` fires with the right port after
+   `bind_with_retries` succeeds, using the same fake-`bind_fn` approach
+   already proven there) plus a new `test_tray_icon.py` case asserting
+   the status text before vs. after `set_listening(8765)`.
+2. **Make `bluez_device_finder.find_paired_phone()`'s tie-break
+   deterministic when multiple paired phones exist and none are
+   currently connected.** Confirmed via reading `paired_phones()` +
+   `find_paired_phone()` in `bluetooth/bluez_device_finder.py` that
+   `phones.sort(key=lambda phone: phone.connected, reverse=True)` only
+   orders by the boolean `connected` flag — when zero phones are
+   connected (the common case right after boot, before the user's
+   phone Bluetooth radio has reconnected), Python's stable sort leaves
+   ties in whatever order `manager.GetManagedObjects().values()`
+   iterated them, which is BlueZ's D-Bus dict ordering, not guaranteed
+   stable across daemon restarts or after (un)pairing other devices —
+   so on a machine paired with more than one phone, which one gets
+   picked for call-audio routing can silently change between app
+   restarts with no user-visible reason. Add a secondary sort key on
+   `phone.name` (case-insensitive) so the result is deterministic and
+   documented, e.g. `phones.sort(key=lambda phone: (not phone.connected,
+   phone.name.lower()))`. Testable directly in a
+   new/expanded `linux/tests/test_bluez_device_finder.py`-style test
+   (check if one already exists first) with plain `BluetoothPhone`
+   fixtures — no real D-Bus/BlueZ needed, mirrors the existing
+   `test_audio_router_parsing.py` pattern of testing pure logic against
+   plain dict/dataclass fixtures.
+3. **Fall back through multiple local IPs in `device_label()` instead
+   of trusting a single UDP-connect route guess.** Confirmed via
+   reading `network/local_address.py`'s `local_ip_address()` that it
+   opens exactly one UDP socket "connected" to `8.8.8.8:80` and reports
+   whichever interface the OS routing table picks for that destination
+   — on a laptop with an active VPN/Tailscale interface (explicitly
+   called out as a supported connectivity path in this same file's
+   module docstring: "the phone connects over LAN/Tailscale"), the
+   default route for an internet-bound probe can be the VPN tunnel
+   interface, not the LAN Wi-Fi/Ethernet interface the phone is
+   actually reachable on — so the address shown in the tray ("type this
+   into the Android app") can be one the phone can never actually
+   reach, with no fallback and no indication anything is wrong. Add a
+   small `socket.getaddrinfo`/`socket.if_nameindex`-based enumeration
+   helper (or, simpler and more testable, accept an injectable list of
+   "probe hosts" tried in order, e.g. `8.8.8.8` then a private
+   `192.168.0.1`-style RFC1918 gateway guess) so a VPN-only result isn't
+   the sole answer silently trusted. Testable in a new
+   `linux/tests/test_local_address.py` by monkeypatching the probe
+   socket's `getsockname()` return value across multiple simulated
+   attempts and asserting the fallback logic picks a private
+   (192.168.x.x/10.x.x.x/172.16-31.x.x) address over a public/VPN one
+   when both are available — no real network needed.
+
 *(PM cycle 2026-07-10 ~08:xx IST added the 3 items below to the top —
 grounded in a fresh re-read of `bluetooth/hfp_manager.py`,
 `ui/tray_icon.py`, `state/call_state.py`, and
