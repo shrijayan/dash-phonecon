@@ -88,3 +88,9 @@ dash-phonecon/
 - mDNS auto-discovery (no manual IP entry)
 - Boot persistence on Android
 - Launch at login (Mac: Login Items; Ubuntu: already done via `/etc/xdg/autostart` in the `.deb`)
+
+### Phase 6 — Screen Share
+- Ubuntu: tray menu "Screen Share Phone" launches `scrcpy` over `adb connect <phone-ip>:5555`, reusing the same IP the WebSocket call-control connection already uses (`CallServer.phone_ip_address`)
+- Requires one-time "Wireless debugging" enable on the phone (see `linux/README.md#screen-share`)
+- Not part of the JSON/WebSocket protocol - a separate adb/scrcpy transport, so no protocol.mdx changes needed
+- Status: implemented + unit-tested (Ubuntu). Not yet built for macOS/Android (Android is the phone being mirrored, not a mirroring client).

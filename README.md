@@ -30,6 +30,7 @@ curl -fsSL https://raw.githubusercontent.com/shrijayan/dash-phonecon/main/linux/
 | WebSocket auto-reconnect with exponential backoff | ✅ (Android side, shared) |
 | Auto-start Android service on phone reboot | ✅ |
 | Connection status indicator | ✅ macOS + Ubuntu |
+| Wireless screen mirroring (scrcpy over adb) | ✅ Ubuntu only — see `linux/README.md#screen-share` |
 
 ## Call Audio Routing (Phase 4) — platform-dependent
 
@@ -144,6 +145,7 @@ dash-phonecon/
 │       ├── state/                       # CallState + CallStateController (pure logic, no Qt/network)
 │       ├── network/call_server.py       # asyncio WebSocket server on port 8765
 │       ├── bluetooth/                   # best-effort Bluetooth Hands-Free audio routing (Phase 4)
+│       ├── screenshare/                 # wireless scrcpy/adb screen mirroring (Phase 6)
 │       └── ui/                          # tray icon, incoming-call popup
 ├── agentlog.md                     # Chronological change log for agents continuing this work
 └── README.md                       # This file

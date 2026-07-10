@@ -110,6 +110,8 @@ class TrayIcon(QSystemTrayIcon):
         menu.addAction(self._clear_log_action)
         menu.addAction(self._bluetooth_audio_action)
         menu.addSeparator()
+        menu.addAction(self._screen_share_action)
+        menu.addSeparator()
         menu.addAction(quit_action)
         self.setContextMenu(menu)
 

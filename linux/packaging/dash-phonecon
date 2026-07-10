@@ -16,8 +16,18 @@ if python3 -c "import PySide6, websockets" >/dev/null 2>&1; then
 fi
 
 if [ -x "$VENV_PYTHON" ] && "$VENV_PYTHON" -c "import PySide6, websockets" >/dev/null 2>&1; then
-    exec env PYTHONPATH="/usr/lib/python3/dist-packages:${PYTHONPATH:-}" "$VENV_PYTHON" \
-        -c "import sys; from dashphone.app import main; sys.exit(main())" "$@"
+    # The dashphone app package itself lives in the system site-packages
+    # (installed by the .deb, not pip), so the venv still needs to find it.
+    # Deliberately NOT using PYTHONPATH here: PYTHONPATH entries are inserted
+    # ahead of the venv's own site-packages on sys.path, so an older
+    # apt-installed package of the same name (e.g. python3-websockets 10.4,
+    # missing the newer `websockets.asyncio` API) would shadow the venv's
+    # newer pip-installed one (found the hard way - the app crashed with
+    # ModuleNotFoundError: websockets.asyncio despite the venv having a
+    # working install). sys.path.append() keeps the venv's own packages
+    # authoritative and only adds dist-packages as a fallback lookup.
+    exec "$VENV_PYTHON" \
+        -c "import sys; sys.path.append('/usr/lib/python3/dist-packages'); from dashphone.app import main; sys.exit(main())" "$@"
 fi
 
 echo "dash-phonecon: required dependencies (PySide6, websockets) are missing" >&2
