@@ -56,11 +56,18 @@ def main() -> int:
         on_answer=lambda: controller.send_command(MessageType.ANSWER),
         on_decline=lambda: controller.send_command(MessageType.REJECT),
     )
+    bluetooth_audio_enabled = True
+
+    def on_toggle_bluetooth_audio(enabled: bool) -> None:
+        nonlocal bluetooth_audio_enabled
+        bluetooth_audio_enabled = enabled
+
     tray = TrayIcon(
         on_hangup=lambda: controller.send_command(MessageType.HANGUP),
         on_quit=app.quit,
         device_label=device_label(),
         on_open_log=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_file_path()))),
+        on_toggle_bluetooth_audio=on_toggle_bluetooth_audio,
     )
 
     def on_state_changed(state: CallState) -> None:
@@ -72,10 +79,12 @@ def main() -> int:
             popup.close()
 
         if state.phase is CallPhase.ACTIVE:
-            hfp_manager.open_audio()
+            if bluetooth_audio_enabled:
+                hfp_manager.open_audio()
             media_ducker.duck_others()
         elif state.phase is CallPhase.IDLE:
-            hfp_manager.close_audio()
+            if bluetooth_audio_enabled:
+                hfp_manager.close_audio()
             media_ducker.restore_others()
 
     def on_bind_failed(error: str) -> None:

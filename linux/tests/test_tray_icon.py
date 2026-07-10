@@ -130,6 +130,39 @@ class TrayIconBindErrorTests(unittest.TestCase):
         except Exception as error:  # pragma: no cover - failure path
             self.fail(f"triggering with no on_open_log raised unexpectedly: {error}")
 
+    def test_bluetooth_audio_action_defaults_checked(self) -> None:
+        tray = _make_tray()
+        self.assertTrue(tray._bluetooth_audio_action.isChecked())
+        self.assertTrue(tray._bluetooth_audio_action.isEnabled())
+
+    def test_bluetooth_audio_action_toggle_invokes_callback(self) -> None:
+        calls = []
+        tray = TrayIcon(
+            on_hangup=lambda: None,
+            on_quit=lambda: None,
+            device_label="This device: 192.168.1.5:8765",
+            on_toggle_bluetooth_audio=lambda enabled: calls.append(enabled),
+        )
+        tray._bluetooth_audio_action.trigger()
+        self.assertEqual(calls, [False])
+        tray._bluetooth_audio_action.trigger()
+        self.assertEqual(calls, [False, True])
+
+    def test_bluetooth_audio_action_safe_without_callback(self) -> None:
+        tray = _make_tray()
+        try:
+            tray._bluetooth_audio_action.trigger()
+        except Exception as error:  # pragma: no cover - failure path
+            self.fail(f"triggering with no on_toggle_bluetooth_audio raised unexpectedly: {error}")
+
+    def test_bluetooth_audio_action_visible_regardless_of_connection_state(self) -> None:
+        tray = _make_tray()
+        self.assertTrue(tray._bluetooth_audio_action.isEnabled())
+        tray.set_connected(True)
+        self.assertTrue(tray._bluetooth_audio_action.isEnabled())
+        tray.set_state(CallState.idle())
+        self.assertTrue(tray._bluetooth_audio_action.isEnabled())
+
 
 if __name__ == "__main__":
     unittest.main()
