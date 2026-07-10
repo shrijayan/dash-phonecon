@@ -103,17 +103,23 @@ jobs:
             exit 0
           fi
 
-          # Self-healing: validate the keystore actually opens with the given
-          # alias/passwords *before* committing to a release build. A release
-          # signed with a broken/mismatched key would otherwise fail deep into
-          # the Gradle build (packageRelease) and block the whole pipeline -
-          # catch it here instead and gracefully degrade to a debug build.
-          if keytool -list \
-              -keystore "$jks_path" \
-              -storepass "$RELEASE_KEYSTORE_PASSWORD" \
-              -alias "$RELEASE_KEY_ALIAS" \
-              -keypass "$RELEASE_KEY_PASSWORD" >/dev/null 2>&1; then
-            echo "Keystore validated OK - building a release-signed APK."
+          # Self-healing: validate the keystore's private key can actually be
+          # decrypted with the given alias/passwords *before* committing to a
+          # release build. `keytool -list` alone doesn't touch the encrypted
+          # private-key blob (found the hard way: it reported "OK" here while
+          # Gradle's packageRelease task still failed with a keytool padding
+          # error) - exporting to a throwaway PKCS12 keystore forces the same
+          # decrypt operation Gradle performs, so it fails here instead of
+          # deep in the build and blocking the whole pipeline.
+          if keytool -importkeystore \
+              -srckeystore "$jks_path" -srcstoretype JKS \
+              -srcstorepass "$RELEASE_KEYSTORE_PASSWORD" \
+              -srcalias "$RELEASE_KEY_ALIAS" \
+              -srckeypass "$RELEASE_KEY_PASSWORD" \
+              -destkeystore "$RUNNER_TEMP/release-validate.p12" -deststoretype PKCS12 \
+              -deststorepass "$RELEASE_KEYSTORE_PASSWORD" \
+              -destkeypass "$RELEASE_KEYSTORE_PASSWORD" >/dev/null 2>&1; then
+            echo "Keystore validated OK (private key decrypts successfully) - building a release-signed APK."
             echo "path=$jks_path" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::RELEASE_KEYSTORE_BASE64/PASSWORD/ALIAS secrets don't produce a working keystore (bad password, wrong alias, or corrupted key material) - falling back to a debug-signed APK so the release isn't blocked. Re-check/re-upload the signing secrets to restore real release signing."
