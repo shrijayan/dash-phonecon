@@ -392,3 +392,23 @@ state. Full suite: 57/57 passed
 (`QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover
 -s tests -t . -v`). No risk-log entry needed — fully test-covered,
 Linux-only, non-protocol change.
+
+## Engineer cycle 2026-07-10 (overnight, commit 5114e9d)
+
+Shipped: `CallServer.listening = Signal(int)`, emitted right after
+`bind_with_retries()` succeeds in `_serve()`. Added
+`TrayIcon.set_listening(port: int)` storing `_listening_port` which
+`_status_label()` now renders as "Waiting for phone on port {port}"
+instead of the previously-identical "Not Connected" text used whether the
+server hadn't started, was listening fine, or had silently crashed.
+Wired `server.listening.connect(tray.set_listening)` in `app.py`. Added
+`CallServerListeningSignalTests` in `test_call_server_bind_retry.py`
+(asserts `listening` fires with the right port using a fake bind
+function, mirroring the existing bind-retry test style) plus 3 new
+`test_tray_icon.py` cases: the waiting label text, that `set_connected`
+supersedes it once actually connected, and that `bind_error` still takes
+priority over the listening label. Full suite: 61/61 passed
+(`QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover
+-s tests -t . -v`). No risk-log entry needed — fully test-covered,
+Linux-only, additive/non-protocol change (no wire format change, no
+other-client updates needed).

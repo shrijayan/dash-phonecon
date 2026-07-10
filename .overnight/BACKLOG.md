@@ -20,30 +20,7 @@ action (that one re-runs discovery on demand; item 2 below fixes a
 determinism bug in the discovery result itself, independent of when
 it's triggered).)*
 
-1. **Add a `CallServer.listening = Signal(int)` fired after a
-   successful bind, and surface it in the tray status instead of the
-   generic "Not Connected."** Confirmed via reading `_serve()` in
-   `network/call_server.py` that after `bind_with_retries(_bind)`
-   succeeds, nothing is emitted at all — only `bind_failed` exists for
-   the failure path, so today the tray's `_status_label()` in
-   `ui/tray_icon.py` shows the exact same "Not Connected" text whether
-   the server (a) hasn't finished starting up yet, (b) is listening
-   fine and just waiting for the phone to connect, or (c) silently
-   crashed after logging `"WebSocket server stopped"` with no
-   `bind_failed` (the bare `except Exception` branch in
-   `_run_event_loop` only logs, never signals). Emit
-   `self.listening.emit(self._port)` right after `bind_with_retries`
-   returns in `_serve()`, add `TrayIcon.set_listening(port: int)`
-   storing a `_listening_port: int | None` that `_status_label()` uses
-   to render "Waiting for phone on port {port}" instead of the bare
-   "Not Connected" once listening has actually started, and wire
-   `server.listening.connect(tray.set_listening)` in `app.py`.
-   Testable directly in `linux/tests/test_call_server_bind_retry.py`
-   style (assert `listening` fires with the right port after
-   `bind_with_retries` succeeds, using the same fake-`bind_fn` approach
-   already proven there) plus a new `test_tray_icon.py` case asserting
-   the status text before vs. after `set_listening(8765)`.
-2. **Make `bluez_device_finder.find_paired_phone()`'s tie-break
+1. **Make `bluez_device_finder.find_paired_phone()`'s tie-break
    deterministic when multiple paired phones exist and none are
    currently connected.** Confirmed via reading `paired_phones()` +
    `find_paired_phone()` in `bluetooth/bluez_device_finder.py` that
@@ -449,6 +426,7 @@ the same "Proposed" section per the format the Engineer persona expects)*
   (timestamp)`)*
 
 - [1fa5e70] feat: add checkable Bluetooth call-audio routing toggle to tray icon (2026-07-10 overnight cycle)
+- [5114e9d] feat: surface CallServer.listening in the tray status instead of generic "Not Connected" (2026-07-10 overnight cycle)
 - [d1f5539] feat: log the underlying OSError when single-instance lock acquire fails (2026-07-10 overnight cycle)
 - [7490f21] feat: surface `bind_failed` to the tray icon instead of dropping it silently (2026-07-10 02:56 IST)
 - [82a00f0] feat: notify on missed calls in the tray icon (2026-07-10 03:34 IST)
