@@ -30,6 +30,18 @@ always the **client**, dialing whichever IP address you typed into it.
 | `{ "type": "REJECT" }` | Declines the ringing call. |
 | `{ "type": "HANGUP" }` | Ends the active call. |
 | `{ "type": "PONG" }` | Keepalive reply. |
+| `{ "type": "DIAL", "number": "+15551234567" }` | Places an outgoing call to `number` via `TelecomManager`. |
+| `{ "type": "REQUEST_CONTACTS" }` | Asks the phone for its full contact list. |
+| `{ "type": "CONTACT_ADD", "name": "...", "number": "..." }` | Creates a contact on the phone. |
+| `{ "type": "CONTACT_UPDATE", "contact_id": "...", "name": "...", "number": "..." }` | Updates an existing contact. |
+| `{ "type": "CONTACT_DELETE", "contact_id": "..." }` | Deletes a contact. |
+
+## Phone → desktop (Contacts replies)
+
+| Message | When it's sent |
+|---|---|
+| `{ "type": "CONTACTS_RESULT", "contacts": [{"id": "...", "name": "...", "number": "..."}, ...] }` | Reply to `REQUEST_CONTACTS`, and after any successful add/update/delete. |
+| `{ "type": "CONTACT_OP_RESULT", "success": true, "error": "..." }` | Reply to `CONTACT_ADD`/`CONTACT_UPDATE`/`CONTACT_DELETE`. `error` is present only when `success` is `false`. |
 
 ## Connection lifecycle
 

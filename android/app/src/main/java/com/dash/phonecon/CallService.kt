@@ -98,6 +98,43 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
             MessageType.PONG -> wsClient.resetPingTimer()
             MessageType.ANSWER -> mainHandler.post { answerCall() }
             MessageType.REJECT, MessageType.HANGUP -> mainHandler.post { endCall() }
+            MessageType.DIAL -> {
+                val number = json.optString(MessageType.FIELD_NUMBER)
+                if (number.isNotEmpty()) {
+                    mainHandler.post { dialCall(number) }
+                } else {
+                    Log.w(TAG, "DIAL received with no number - ignoring")
+                }
+            }
+            MessageType.REQUEST_CONTACTS -> mainHandler.post { sendContactsList() }
+            MessageType.REQUEST_CALL_LOG -> mainHandler.post { sendCallLog() }
+            MessageType.CONTACT_ADD -> mainHandler.post {
+                val name = json.optString(MessageType.FIELD_NAME)
+                val number = json.optString(MessageType.FIELD_NUMBER)
+                runCatching { ContactsRepository.add(this, name, number) }
+                    .fold(
+                        onSuccess = { sendContactOpResult(true, null); sendContactsList() },
+                        onFailure = { sendContactOpResult(false, it.message) }
+                    )
+            }
+            MessageType.CONTACT_UPDATE -> mainHandler.post {
+                val id = json.optString(MessageType.FIELD_CONTACT_ID)
+                val name = json.optString(MessageType.FIELD_NAME)
+                val number = json.optString(MessageType.FIELD_NUMBER)
+                runCatching { ContactsRepository.update(this, id, name, number) }
+                    .fold(
+                        onSuccess = { ok -> sendContactOpResult(ok, if (ok) null else "Contact not found"); sendContactsList() },
+                        onFailure = { sendContactOpResult(false, it.message) }
+                    )
+            }
+            MessageType.CONTACT_DELETE -> mainHandler.post {
+                val id = json.optString(MessageType.FIELD_CONTACT_ID)
+                runCatching { ContactsRepository.delete(this, id) }
+                    .fold(
+                        onSuccess = { ok -> sendContactOpResult(ok, if (ok) null else "Contact not found"); sendContactsList() },
+                        onFailure = { sendContactOpResult(false, it.message) }
+                    )
+            }
             else -> Log.w(TAG, "Unknown command type: $type")
         }
     }
@@ -171,6 +208,50 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
         val method = telephonyManager.javaClass.getDeclaredMethod("endCall")
         method.isAccessible = true
         method.invoke(telephonyManager)
+    }
+
+    private fun dialCall(number: String) {
+        runCatching {
+            val telecomManager = getSystemService(TelecomManager::class.java)
+            val uri = android.net.Uri.fromParts("tel", number, null)
+            val extras = android.os.Bundle()
+            telecomManager.placeCall(uri, extras)
+        }.onFailure { Log.e(TAG, "Failed to place outgoing call: ${it.message}") }
+    }
+
+    // --- Contacts CRUD ---
+
+    private fun sendContactsList() {
+        runCatching {
+            val contacts = ContactsRepository.listAll(this)
+            val payload = JSONObject()
+                .put(MessageType.FIELD_TYPE, MessageType.CONTACTS_RESULT)
+                .put(MessageType.FIELD_CONTACTS, ContactsRepository.toJsonArray(contacts))
+                .toString()
+            wsClient.send(payload)
+        }.onFailure { Log.e(TAG, "Failed to read contacts: ${it.message}", it) }
+    }
+
+    private fun sendContactOpResult(success: Boolean, error: String?) {
+        val payload = JSONObject()
+            .put(MessageType.FIELD_TYPE, MessageType.CONTACT_OP_RESULT)
+            .put(MessageType.FIELD_SUCCESS, success)
+            .apply { if (error != null) put(MessageType.FIELD_ERROR, error) }
+            .toString()
+        runCatching { wsClient.send(payload) }.onFailure { Log.e(TAG, "send failed: ${it.message}", it) }
+    }
+
+    // --- Call log ---
+
+    private fun sendCallLog() {
+        runCatching {
+            val entries = CallLogRepository.recent(this)
+            val payload = JSONObject()
+                .put(MessageType.FIELD_TYPE, MessageType.CALL_LOG_RESULT)
+                .put(MessageType.FIELD_CALLS, CallLogRepository.toJsonArray(entries))
+                .toString()
+            wsClient.send(payload)
+        }.onFailure { Log.e(TAG, "Failed to read call log: ${it.message}", it) }
     }
 
     // --- Notifications ---

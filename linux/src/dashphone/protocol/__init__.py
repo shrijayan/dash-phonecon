@@ -1,3 +1,31 @@
-from dashphone.protocol.message_type import FIELD_NAME, FIELD_NUMBER, FIELD_TYPE, MessageType, parse_message_type
+from dashphone.protocol.message_type import (
+    FIELD_CALL_TYPE,
+    FIELD_CALLS,
+    FIELD_CONTACT_ID,
+    FIELD_CONTACTS,
+    FIELD_DURATION,
+    FIELD_ERROR,
+    FIELD_NAME,
+    FIELD_NUMBER,
+    FIELD_SUCCESS,
+    FIELD_TIMESTAMP,
+    FIELD_TYPE,
+    MessageType,
+    parse_message_type,
+)
 
-__all__ = ["FIELD_NAME", "FIELD_NUMBER", "FIELD_TYPE", "MessageType", "parse_message_type"]
+__all__ = [
+    "FIELD_CALL_TYPE",
+    "FIELD_CALLS",
+    "FIELD_CONTACT_ID",
+    "FIELD_CONTACTS",
+    "FIELD_DURATION",
+    "FIELD_ERROR",
+    "FIELD_NAME",
+    "FIELD_NUMBER",
+    "FIELD_SUCCESS",
+    "FIELD_TIMESTAMP",
+    "FIELD_TYPE",
+    "MessageType",
+    "parse_message_type",
+]

@@ -36,3 +36,8 @@ def setup_logging(verbose: bool = False) -> None:
     root_logger.addHandler(console_handler)
 
     logging.getLogger(__name__).info("Dash Phone Con starting - logging to %s", log_file_path())
+
+
+def clear_log_file() -> None:
+    """Truncate the current log file in place (keeps rotated backups)."""
+    log_file_path().write_text("")
