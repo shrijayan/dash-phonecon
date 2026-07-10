@@ -68,7 +68,13 @@ class CallStateController(QObject):
             self.send_command(MessageType.PONG)
 
         else:
-            logger.warning("Ignoring unknown/unsupported message: %r", message)
+            # Every controller receives every incoming message (see CallServer
+            # broadcasting all messages to all handlers) and ignores the ones
+            # it doesn't own - e.g. CONTACTS_RESULT/CALL_LOG_RESULT are handled
+            # by ContactsController/CallLogController, not here. debug (not
+            # warning) since "unknown to this controller" is expected traffic,
+            # not an actual problem.
+            logger.debug("Ignoring message not handled by CallStateController: %r", message_type)
 
     def send_command(self, message_type: MessageType) -> None:
         """Send a bare {"type": "..."} command to the phone (ANSWER/REJECT/HANGUP/PONG)."""

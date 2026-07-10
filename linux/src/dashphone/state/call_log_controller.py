@@ -6,12 +6,16 @@ call log.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Callable
 
 from PySide6.QtCore import QObject, Signal
 
 from dashphone.protocol import FIELD_CALL_TYPE, FIELD_CALLS, FIELD_DURATION, FIELD_NAME, FIELD_NUMBER, FIELD_TIMESTAMP, MessageType, parse_message_type
+
+logger = logging.getLogger(__name__)
+
 
 # Mirrors android.provider.CallLog.Calls type constants.
 CALL_TYPE_INCOMING = 1
@@ -51,6 +55,7 @@ class CallLogController(QObject):
         self.entries: list[CallLogEntry] = []
 
     def refresh(self) -> None:
+        logger.info("Requesting call log from phone")
         self._send_json({"type": MessageType.REQUEST_CALL_LOG.value})
 
     def handle_event(self, message: dict) -> None:
@@ -68,4 +73,5 @@ class CallLogController(QObject):
             for raw in message.get(FIELD_CALLS, [])
         ]
         self.entries = entries
+        logger.info("Received %d call log entries from phone", len(entries))
         self.call_log_updated.emit(entries)
