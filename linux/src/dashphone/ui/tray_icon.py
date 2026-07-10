@@ -47,6 +47,8 @@ class TrayIcon(QSystemTrayIcon):
         on_clear_log: Callable[[], None] | None = None,
         on_toggle_bluetooth_audio: Callable[[bool], None] | None = None,
         on_open_contacts: Callable[[], None] | None = None,
+        on_screen_share: Callable[[], None] | None = None,
+        screen_share_available: bool = True,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -84,6 +86,13 @@ class TrayIcon(QSystemTrayIcon):
         if on_toggle_bluetooth_audio is not None:
             self._bluetooth_audio_action.toggled.connect(lambda checked: on_toggle_bluetooth_audio(checked))
 
+        self._screen_share_action = QAction("Screen Share Phone")
+        if on_screen_share is not None:
+            self._screen_share_action.triggered.connect(lambda: on_screen_share())
+        self._screen_share_action.setEnabled(screen_share_available)
+        if not screen_share_available:
+            self._screen_share_action.setText("Screen Share Phone (scrcpy/adb not installed)")
+
         quit_action = QAction(f"Quit {APP_DISPLAY_NAME}")
         quit_action.triggered.connect(lambda: on_quit())
 
@@ -98,6 +107,8 @@ class TrayIcon(QSystemTrayIcon):
         menu.addAction(self._open_log_action)
         menu.addAction(self._clear_log_action)
         menu.addAction(self._bluetooth_audio_action)
+        menu.addSeparator()
+        menu.addAction(self._screen_share_action)
         menu.addSeparator()
         menu.addAction(quit_action)
         self.setContextMenu(menu)
@@ -161,6 +172,12 @@ class TrayIcon(QSystemTrayIcon):
         happened at all unless they noticed it live."""
         who = name or number or "Unknown"
         self.showMessage(APP_DISPLAY_NAME, f"Missed call from {who}", QSystemTrayIcon.MessageIcon.Information)
+
+    def set_screen_share_status(self, text: str) -> None:
+        """Optional status suffix shown on the screen-share menu item, e.g.
+        while adb is connecting or after a failure."""
+        base = "Screen Share Phone"
+        self._screen_share_action.setText(f"{base} — {text}" if text else base)
 
     @staticmethod
     def _disabled_action(text: str) -> QAction:

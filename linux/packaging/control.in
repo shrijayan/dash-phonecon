@@ -3,8 +3,8 @@ Version: __VERSION__
 Section: net
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.10), python3-pyside6.qtcore, python3-pyside6.qtgui, python3-pyside6.qtwidgets, python3-websockets
-Recommends: python3-dbus, pulseaudio-utils, bluez, libspa-0.2-bluetooth
+Depends: python3 (>= 3.10), python3-venv, libegl1, libgl1, libxkbcommon0, libxkbcommon-x11-0, libxcb-cursor0
+Recommends: python3-pyside6.qtcore, python3-pyside6.qtgui, python3-pyside6.qtwidgets, python3-websockets, python3-dbus, pulseaudio-utils, bluez, libspa-0.2-bluetooth, scrcpy, adb
 Maintainer: Dash PhoneCon Project <dash-phonecon@localhost>
 Homepage: https://github.com/shrijayan/dash-phonecon
 Description: Answer and control Android phone calls from Ubuntu
@@ -17,6 +17,10 @@ Description: Answer and control Android phone calls from Ubuntu
  computer's speakers and microphone over Bluetooth Hands-Free once a call
  is active (the packages under Recommends enable this; the core features
  above work over WiFi alone even without them).
+ .
+ It can also mirror the phone's screen wirelessly (via scrcpy over adb)
+ from the tray menu, once "Wireless debugging" is enabled once on the
+ phone.
  .
  Requires the companion Android app (see the project's android/
  directory) installed on your phone and pointed at this computer's IP

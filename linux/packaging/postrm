@@ -11,4 +11,8 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
 fi
 
+# Clean up the self-healing fallback virtualenv (postinst), if one was
+# created because this distro's apt archives lacked python3-pyside6.*.
+rm -rf /usr/lib/dash-phonecon/venv
+
 exit 0

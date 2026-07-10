@@ -31,3 +31,10 @@
   --ifm-color-primary-lightest: #a1cef6;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 }
+
+/* "Copy page as Markdown" button injected by src/clientModules/copyPageAsMarkdown.js */
+.copy-md-button {
+  display: block;
+  margin-bottom: 1rem;
+}
+

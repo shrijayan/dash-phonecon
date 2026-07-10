@@ -28,7 +28,7 @@ class MessageType(str, Enum):
     REJECT = "REJECT"
     HANGUP = "HANGUP"
     PONG = "PONG"
-    DIAL = "DIAL"  # places an outgoing call to FIELD_NUMBER via the phone's TelecomManager
+    DIAL = "DIAL"  # this app -> phone: place an outgoing call to FIELD_NUMBER via the phone's TelecomManager
 
     # Contacts CRUD - bidirectional, always initiated by this app, phone replies
     REQUEST_CONTACTS = "REQUEST_CONTACTS"  # this app -> phone: "send me your full contact list"

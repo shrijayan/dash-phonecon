@@ -45,4 +45,3 @@ def clear_log_file() -> None:
     reproducing a Bluetooth routing issue per the README's troubleshooting
     flow) without wading through unrelated older history."""
     log_file_path().open("w").close()
-

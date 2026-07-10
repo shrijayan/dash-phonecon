@@ -26,6 +26,7 @@ would a Mac's.
 | Auto-reconnect on the phone side (already built into the Android app) | Works |
 | Other media (Spotify, browser tabs, etc.) pauses automatically during a call | Best-effort - see [Media ducking](#media-ducking-best-effort) |
 | Call audio through this computer's speakers/mic (Bluetooth Hands-Free) | Best-effort - see [Bluetooth call audio](#bluetooth-call-audio-best-effort) |
+| Wireless screen mirroring (see the phone's screen, click to control) | Works - see [Screen share](#screen-share) |
 
 Unlike macOS 26 (which removed the API this needs - see `../README.md`),
 Ubuntu's audio system (PipeWire) has a real, non-blocked path for this, but
@@ -122,6 +123,65 @@ If a player does not get paused, check the log
 (`~/.local/state/dash-phonecon/dashphone.log`) for `media_ducker` lines -
 most likely that player does not implement MPRIS2, or wasn't in the
 "Playing" state (e.g. a paused video) when the call started.
+
+## Screen share
+
+From the tray menu, click **Screen Share Phone** to open a live mirror of
+the phone's screen in a window on this computer (via
+[scrcpy](https://github.com/Genymobile/scrcpy)) - you can even click/type
+into it to control the phone remotely, no cable required. This uses the
+*same* IP address already talking to this app over WiFi/Tailscale for call
+control - no second IP to type in anywhere.
+
+### One-time phone setup: enable Wireless debugging
+
+1. On the phone: **Settings → About phone → tap "Build number" 7 times**
+   to unlock Developer options (skip if already a developer).
+2. **Settings → System → Developer options → enable "Wireless debugging"**.
+3. Trust this computer for wireless ADB - two ways, pick whichever your
+   phone offers:
+   - **No cable at all (Android 11+):** tap "Wireless debugging" →
+     **"Pair device with QR code"** (or "Pair device with pairing code"),
+     scan/enter it - this pairing happens entirely over WiFi.
+   - **USB, once (works on any Android version):** plug in via USB and run:
+     ```bash
+     adb tcpip 5555
+     ```
+   Either way, this only needs doing again if you factory-reset the phone
+   or revoke USB debugging authorizations - it survives reboots and WiFi
+   reconnects.
+
+### Requirements
+
+Needs `scrcpy` and `adb` on this computer:
+
+```bash
+sudo apt install scrcpy adb
+```
+
+If either is missing, the tray menu item is greyed out with that reason
+shown directly in the menu instead of failing silently on click.
+
+### Auto-reconnect - no re-clicking needed
+
+Screen share depends on the phone being reachable at its current IP over
+`adb connect` - the exact same network path (LAN or Tailscale) already
+used for call control, which this project is built around staying solid
+across the phone roaming the house. Once you click **Screen Share Phone**,
+it stays "on" until you explicitly click it again (to stop) or quit the
+app:
+
+- If the phone hasn't connected to this computer yet, it keeps retrying
+  every few seconds until it does.
+- If scrcpy's connection drops (phone leaves WiFi range, briefly loses
+  signal, etc.), it automatically reconnects and re-launches scrcpy on
+  its own the moment the phone is reachable again - no manual click
+  required, matching this project's "no loss when the phone changes
+  rooms" goal.
+- After about a minute of continuous failures it gives up and shows
+  "Failed" in the tray menu (most commonly meaning Wireless debugging
+  got disabled on the phone) - click **Screen Share Phone** again to
+  restart the retry loop once you've fixed that.
 
 ## Bluetooth call audio (best-effort)
 
@@ -257,12 +317,14 @@ linux/
 │   ├── state/                    # CallState + CallStateController (pure logic, no Qt widgets/network)
 │   ├── network/                  # asyncio WebSocket server (port 8765) + LAN IP helper
 │   ├── bluetooth/                # best-effort Bluetooth Hands-Free audio routing (Phase 4)
+│   ├── screenshare/               # wireless scrcpy/adb screen mirroring
 │   ├── media_ducker.py           # best-effort MPRIS pause/resume of other media during a call
 │   └── ui/                       # tray icon, incoming-call popup, icon drawing
 └── tests/
     ├── test_call_state.py            # unit tests for the state/protocol logic
     ├── test_audio_router_parsing.py  # unit tests for pactl JSON parsing/matching
     ├── test_media_ducker.py          # unit tests for MPRIS pause/resume matching + idempotency
+    ├── test_screen_share_manager.py   # unit tests for adb/scrcpy orchestration
     └── fake_phone_client.py          # simulates the Android phone, for manual testing
 ```
 

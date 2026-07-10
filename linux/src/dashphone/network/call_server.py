@@ -80,6 +80,20 @@ class CallServer(QObject):
     def port(self) -> int:
         return self._port
 
+    @property
+    def phone_ip_address(self) -> Optional[str]:
+        """The connected phone's IP address (no port), or None if nothing is
+        connected right now. Used by ScreenShareManager to point adb/scrcpy
+        at the same device that's already talking to us over WebSocket -
+        no separate IP entry needed for screen mirroring."""
+        connection = self._current_connection
+        if connection is None:
+            return None
+        remote_address = connection.remote_address
+        if not remote_address:
+            return None
+        return remote_address[0]
+
     def start(self) -> None:
         """Start the server on a background thread. Call once from the GUI thread."""
         if self._thread is not None:

@@ -21,6 +21,7 @@ from dashphone.logging_setup import clear_log_file, log_file_path, setup_logging
 from dashphone.media_ducker import MediaDucker
 from dashphone.network import CallServer, device_label
 from dashphone.protocol import MessageType
+from dashphone.screenshare import ScreenShareManager, ScreenShareState
 from dashphone.single_instance import SingleInstanceLock
 from dashphone.state import CallPhase, CallState, CallStateController
 from dashphone.state.call_log_controller import CallLogController
@@ -45,6 +46,7 @@ def main() -> int:
     call_log_controller = CallLogController(send_json=server.send)
     hfp_manager = HfpManager()
     media_ducker = MediaDucker()
+    screen_share = ScreenShareManager()
 
     popup = CallPopupWindow(
         on_answer=lambda: controller.send_command(MessageType.ANSWER),
@@ -75,7 +77,27 @@ def main() -> int:
         on_clear_log=clear_log_file,
         on_toggle_bluetooth_audio=on_toggle_bluetooth_audio,
         on_open_contacts=phone_window.show_and_refresh,
+        on_screen_share=lambda: (
+            screen_share.stop() if screen_share.state != ScreenShareState.IDLE else screen_share.start(lambda: server.phone_ip_address)
+        ),
+        screen_share_available=ScreenShareManager.is_available(),
     )
+
+    def on_screen_share_state_changed(state: ScreenShareState) -> None:
+        labels = {
+            ScreenShareState.IDLE: "",
+            ScreenShareState.CONNECTING: "Connecting…",
+            ScreenShareState.ACTIVE: "Active (click to stop)",
+            ScreenShareState.FAILED: "Failed",
+        }
+        tray.set_screen_share_status(labels[state])
+
+    def on_screen_share_error(message: str) -> None:
+        logger.warning("Screen share error: %s", message)
+        tray.showMessage(APP_NAME, message)
+
+    screen_share.state_changed.connect(on_screen_share_state_changed)
+    screen_share.error.connect(on_screen_share_error)
 
     def on_state_changed(state: CallState) -> None:
         tray.set_state(state)
@@ -124,5 +146,6 @@ def main() -> int:
     logger.info("%s is running", APP_NAME)
     exit_code = app.exec()
 
+    screen_share.stop()
     server.stop()
     return exit_code

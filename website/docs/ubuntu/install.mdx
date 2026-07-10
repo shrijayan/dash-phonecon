@@ -1,6 +1,8 @@
 ---
 id: install
 title: Install on Ubuntu
+description: Install Dash Phone Con's Ubuntu tray app in one command via the .deb installer to answer Android calls from your desktop.
+keywords: [install dash phone con ubuntu, android call popup linux, ubuntu tray app deb]
 sidebar_position: 1
 ---
 
@@ -15,10 +17,18 @@ curl -fsSL https://raw.githubusercontent.com/shrijayan/dash-phonecon/main/linux/
 This script:
 1. Looks up the latest release on GitHub
 2. Downloads the `.deb` package and verifies its SHA-256 checksum
-3. Installs it with `apt`, which automatically pulls in every dependency
-   (PySide6, `websockets`, etc.) from Ubuntu's own repositories — nothing
-   to install by hand
-4. Prints how to start the app
+3. Installs it with `apt`, which pulls in required system libraries
+   automatically; PySide6/`websockets` come from `python3-pyside6.*` when
+   your distro's repos have it (most do)
+4. **Self-healing:** if your distro doesn't ship `python3-pyside6.*` (some
+   don't yet), the package automatically builds a private virtual
+   environment and installs PySide6/websockets into it via pip on first
+   setup — no manual dependency wrangling, no failed install. The app's
+   launcher transparently uses whichever environment actually has the
+   dependencies.
+5. If the first `apt install` attempt fails, the installer automatically
+   refreshes package lists and retries once before giving up
+6. Prints how to start the app
 
 You'll only be asked for your `sudo` password once, for the `apt install`
 step. To install a specific version instead of the latest:
@@ -27,9 +37,9 @@ step. To install a specific version instead of the latest:
 curl -fsSL https://raw.githubusercontent.com/shrijayan/dash-phonecon/main/linux/install.sh | bash -s -- --version 1.2.0
 ```
 
-**Requirements:** Ubuntu 24.04+ (or another Debian-based distro with
-`python3-pyside6.*` available — this project develops against Ubuntu
-26.04). Not root.
+**Requirements:** Ubuntu 20.04+ (or another Debian-based distro). No
+`python3-pyside6.*` in your distro's repos? No problem — the installer
+falls back to a private virtualenv automatically (see above). Not root.
 
 Once it's done, jump to [First-time setup](/docs/ubuntu/first-run).
 
