@@ -5,6 +5,34 @@ appends a short entry here regardless of outcome, so the next cycle (and
 the morning summary) has full visibility without re-deriving it from git
 log alone.
 
+## PM cycle 2026-07-10 ~12:xx IST
+
+- Synced to `origin/overnight/auto-research` (`42b04f6`, replace-connection
+  logging now in Shipped, no new Abandoned entries). No `.overnight/STOP`
+  present. Re-read `GUARDRAILS.md`, `AGENTS.md`, and freshly checked
+  `bluetooth/hfp_manager.py` + `bluetooth/audio_router.py`,
+  `logging_setup.py` + `ui/tray_icon.py`, and
+  `state/call_state_controller.py` to avoid duplicating any of the 31
+  open Proposed items or the 10 already-Shipped features.
+- Added 3 new items to the top of `BACKLOG.md`'s Proposed section:
+  (1) stop `HfpManager._attempt_switch()`'s 20-attempt retry loop from
+  logging the same "pactl not installed" permanent-failure warning 20
+  times — distinguish that from a genuinely transient "phone not
+  visible yet" failure and give up after one attempt instead; (2) a
+  "Clear Log File" tray action truncating `logging_setup.log_file_path()`
+  in place, complementing the already-shipped read-only "Open Log File"
+  action so a user reproducing a bug can start from a clean log; (3) log
+  a WARNING in `CallStateController.handle_event()`'s `CALL_RINGING`
+  branch when it silently overwrites a still-RINGING/ACTIVE previous
+  call state (call waiting or a stale replayed message), which today
+  leaves zero trace of the state being discarded. All three name
+  specific existing files/functions, are scoped to ~15-30 min, and have
+  concrete mock/assertLogs-based unit-test plans building on existing
+  `linux/tests/` patterns (`test_hfp_manager.py`, `test_logging_setup.py`,
+  `test_call_state.py`).
+- No code under `android/`, `linux/src`, `macos/`, or `website/` was
+  touched this cycle — only `.overnight/BACKLOG.md` and this file.
+
 ## PM cycle 2026-07-10 ~10:xx IST
 
 - Synced to `origin/overnight/auto-research` (`ddea401`, listening-signal

@@ -7,6 +7,98 @@ this file or the codebase.
 
 ## Proposed
 
+*(PM cycle 2026-07-10 ~12:xx IST added the 3 items below to the top —
+grounded in a fresh re-read of `bluetooth/hfp_manager.py`,
+`logging_setup.py`/`ui/tray_icon.py`, and `state/call_state_controller.py`
+against the current Proposed/Shipped/Abandoned lists; none of these
+duplicate the 31 open items or any shipped/abandoned entry — in
+particular item 1 below is deliberately distinct from the already-open
+"retry transient `pactl` `TimeoutExpired`" idea further down (that one
+adds retries for a genuinely transient failure inside `_run_pactl()`;
+item 1 here instead stops *repeating* an already-permanent failure across
+`_attempt_switch()`'s outer 20-attempt loop), and item 2 is distinct from
+the already-shipped "Open Log File" action (that one opens the existing
+file; item 2 clears its contents) and item 3 is distinct from every
+existing call-duration/tally/decline-related Proposed item since it's
+about a *second* incoming call arriving before the first one resolves,
+not about the first call's own lifecycle.)*
+
+1. **Stop repeating pactl-permanently-unavailable warnings across every
+   attempt of `HfpManager._attempt_switch()`'s retry loop.** Confirmed via
+   reading `bluetooth/hfp_manager.py`'s `_try_switch_now()` that it calls
+   `audio.find_card_for_mac(audio.list_cards(), ...)` etc. and catches
+   `audio.AudioRouterError` from `_run_pactl()` (defined in
+   `bluetooth/audio_router.py`) — but `_attempt_switch()`'s outer loop
+   (up to `_MAX_ATTEMPTS = 20`, 1s apart) treats every failure the same
+   way, whether it's "phone not visible as an audio device yet" (a real
+   transient condition worth retrying) or "pactl is not installed at all"
+   (a permanent condition per `AudioRouterError`'s own message text,
+   e.g. `"pactl is not installed (package: pulseaudio-utils)"` — this
+   will never change mid-retry-loop). On a machine without
+   `pulseaudio-utils`, every single one of the 20 attempts logs its own
+   `logger.warning("Could not switch audio to phone: %s", error)` line,
+   spamming the rotating log file with 20 identical lines for one
+   permanent, already-diagnosed condition. Have `_try_switch_now()`
+   re-raise (or a small wrapper distinguish) a "pactl missing" case
+   specifically — simplest fix: check `error` message or catch
+   `FileNotFoundError` before it becomes `AudioRouterError` inside
+   `_run_pactl()` and have `_attempt_switch()` treat that one case as an
+   immediate give-up (calls `_emit_status(...)` once, does not schedule
+   another `QTimer.singleShot`) instead of retrying 19 more times.
+   Testable directly in `linux/tests/test_hfp_manager.py` (already
+   exists, uses patched `find_paired_phone`/synchronous
+   `QTimer.singleShot`) by monkeypatching `audio.find_card_for_mac` (or
+   the underlying `_run_pactl`) to always raise the "not installed"
+   variant and asserting `_attempt_switch` is only invoked/logged once,
+   not 20 times, using `assertLogs`.
+2. **"Clear Log File" tray action alongside the existing "Open Log
+   File" one.** Confirmed via reading `logging_setup.py` and
+   `ui/tray_icon.py` that the rotating file handler
+   (`RotatingFileHandler(..., maxBytes=1_000_000, backupCount=3)`) has no
+   user-facing way to reset it — the only options today are "Open Log
+   File" (read-only) or manually deleting files by hand in
+   `$XDG_STATE_HOME/dash-phonecon/`, which most users won't know to do,
+   so a user trying to capture a *fresh* debug session (e.g. after
+   reproducing a Bluetooth routing issue per the README's troubleshooting
+   flow) has to wade through old unrelated log history. Add a small
+   `logging_setup.clear_log_file() -> None` that truncates
+   `log_file_path()` in place (open in `"w"` mode, matching the exact
+   truncation semantics `RotatingFileHandler` itself would use on
+   rollover — no need to touch the `.1`/`.2`/`.3` backups, those age out
+   naturally), and a new `QAction("Clear Log File")` beside
+   `self._open_log_action` in `ui/tray_icon.py` wired the same way (new
+   `on_clear_log: Callable[[], None] | None` constructor param), called
+   from `app.py` via `lambda: logging_setup.clear_log_file()`. Testable
+   directly in the existing `linux/tests/test_logging_setup.py` (already
+   has an `XDG_STATE_HOME` override/fallback pattern from the "Open Log
+   File" cycle) by writing known content, calling `clear_log_file()`,
+   and asserting the file exists and is empty, plus a
+   `test_tray_icon.py` case asserting the new action's callback fires on
+   trigger.
+3. **Log when a new `CALL_RINGING` arrives while a previous call is
+   still `RINGING` or `ACTIVE` (a second incoming call before the first
+   resolved).** Confirmed via reading
+   `state/call_state_controller.py`'s `handle_event()` that the
+   `CALL_RINGING` branch unconditionally calls `self._set_state(...)`,
+   silently overwriting whatever call state was already there — a real,
+   observable phone-side scenario (call waiting, or a stale/duplicate
+   `CALL_RINGING` replay from a flaky connection arriving after the
+   user already answered) leaves zero trace in the log of the fact that
+   one call's state was discarded in favor of another, making a user
+   report like "my active call just silently vanished" undiagnosable
+   from the log file alone. Add a guard right before the existing
+   `logger.info("Call ringing: ...")` line: if
+   `self._state.phase is not CallPhase.IDLE`, log a
+   `logger.warning("New call ringing (%s) while previous call was %s (%s) - overwriting previous call state", ...)` 
+   instead of (or in addition to) the existing info line, using
+   `self._state.phase.name` and `self._state.display_name` for the
+   previous call's identity. Testable directly in
+   `linux/tests/test_call_state.py` (already has an
+   `assertLogs`-based pattern from the missed-call tests) with a
+   `RINGING → CALL_RINGING` (or `ACTIVE → CALL_RINGING`) transition
+   sequence asserting the new `WARNING` record appears, and a plain
+   `IDLE → CALL_RINGING` transition asserting it does not.
+
 *(PM cycle 2026-07-10 ~11:xx IST added the 3 items below to the top —
 grounded in a fresh re-read of `network/call_server.py`,
 `bluetooth/bluez_device_finder.py`, and `media_ducker.py` against the
