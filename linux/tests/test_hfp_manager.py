@@ -76,5 +76,46 @@ class HfpManagerStartupScanRetryTests(unittest.TestCase):
         self.assertEqual(statuses, ["No paired phone found"])
 
 
+class HfpManagerPactlNotInstalledTests(unittest.TestCase):
+    def test_gives_up_immediately_when_pactl_not_installed(self):
+        phone = BluetoothPhone(name="Pixel", mac_address="AA:BB:CC:DD:EE:FF", connected=True)
+        manager = HfpManager()
+        manager._phone = phone
+        manager._routing_active = True
+
+        statuses = []
+        manager.status_changed.connect(statuses.append)
+
+        with patch.object(
+            hfp_manager_module.audio,
+            "list_cards",
+            side_effect=hfp_manager_module.audio.PactlNotInstalledError(
+                "pactl is not installed (package: pulseaudio-utils)"
+            ),
+        ) as mocked, self.assertLogs(hfp_manager_module.logger, level="WARNING") as logs:
+            _run_timers_synchronously(manager._attempt_switch, 1)
+
+        # Only one attempt should have happened - no retry loop for a
+        # permanent condition.
+        self.assertEqual(mocked.call_count, 1)
+        self.assertEqual(len(logs.records), 1)
+        self.assertTrue(any("pactl is not installed" in status for status in statuses))
+
+    def test_still_retries_on_transient_audio_router_error(self):
+        phone = BluetoothPhone(name="Pixel", mac_address="AA:BB:CC:DD:EE:FF", connected=True)
+        manager = HfpManager()
+        manager._phone = phone
+        manager._routing_active = True
+
+        with patch.object(
+            hfp_manager_module.audio,
+            "list_cards",
+            side_effect=hfp_manager_module.audio.AudioRouterError("transient failure"),
+        ) as mocked:
+            _run_timers_synchronously(manager._attempt_switch, 1)
+
+        self.assertEqual(mocked.call_count, hfp_manager_module._MAX_ATTEMPTS)
+
+
 if __name__ == "__main__":
     unittest.main()

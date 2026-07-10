@@ -28,6 +28,18 @@ class AudioRouterError(RuntimeError):
     """Raised when `pactl` is missing, times out, or a command fails."""
 
 
+class PactlNotInstalledError(AudioRouterError):
+    """Raised specifically when the `pactl` binary itself is missing.
+
+    This is a permanent condition for the lifetime of the process (the
+    binary will not suddenly appear mid-retry-loop), unlike "phone not
+    yet visible as an audio device" which is genuinely transient -
+    callers that retry on `AudioRouterError` should treat this subclass
+    as an immediate give-up instead of burning through their retry
+    budget logging the exact same diagnosis over and over.
+    """
+
+
 def mac_to_pactl_token(mac_address: str) -> str:
     """'AA:BB:CC:DD:EE:FF' -> 'AA_BB_CC_DD_EE_FF', how PipeWire/BlueZ name
     Bluetooth cards/sinks/sources."""
@@ -68,7 +80,7 @@ def _run_pactl(*args: str) -> str:
             timeout=_PACTL_TIMEOUT_SECONDS,
         )
     except FileNotFoundError as error:
-        raise AudioRouterError("pactl is not installed (package: pulseaudio-utils)") from error
+        raise PactlNotInstalledError("pactl is not installed (package: pulseaudio-utils)") from error
     except subprocess.TimeoutExpired as error:
         raise AudioRouterError(f"pactl {' '.join(args)} timed out") from error
 

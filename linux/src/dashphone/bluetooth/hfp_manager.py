@@ -111,7 +111,14 @@ class HfpManager(QObject):
         if not self._routing_active or self._phone is None:
             return
 
-        if self._try_switch_now():
+        try:
+            switched = self._try_switch_now()
+        except audio.PactlNotInstalledError as error:
+            logger.warning("Could not switch audio to phone: %s", error)
+            self._emit_status(f"pactl is not installed - cannot route call audio: {error}")
+            return
+
+        if switched:
             return
 
         if attempt >= _MAX_ATTEMPTS:
@@ -149,6 +156,8 @@ class HfpManager(QObject):
             logger.info("Switched system audio to '%s'", self._phone.name)
             self._emit_status(f"Speaking through {self._phone.name}")
             return True
+        except audio.PactlNotInstalledError:
+            raise
         except audio.AudioRouterError as error:
             logger.warning("Could not switch audio to phone: %s", error)
             return False
