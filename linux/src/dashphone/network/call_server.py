@@ -162,6 +162,11 @@ class CallServer(QObject):
         previous = self._current_connection
         self._current_connection = connection
         if previous is not None and previous is not connection:
+            logger.info(
+                "Replacing existing phone connection from %s with new connection from %s",
+                previous.remote_address,
+                connection.remote_address,
+            )
             await previous.close()
 
     def _dispatch_message(self, raw_message: str | bytes) -> None:
