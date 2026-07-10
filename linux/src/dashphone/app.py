@@ -14,7 +14,7 @@ import sys
 
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
 
 from dashphone.bluetooth import HfpManager
 from dashphone.logging_setup import clear_log_file, log_file_path, setup_logging
@@ -39,16 +39,6 @@ def main() -> int:
     app.setApplicationName(APP_NAME)
     app.setQuitOnLastWindowClosed(False)  # closing the popup must not quit the tray app
 
-    lock = SingleInstanceLock()
-    if not lock.acquire():
-        logger.warning(
-            "Another instance of %s is already running - exiting (%s)",
-            APP_NAME,
-            lock.last_error,
-        )
-        QMessageBox.warning(None, APP_NAME, f"{APP_NAME} is already running.")
-        return 1
-
     server = CallServer()
     controller = CallStateController(send_json=server.send)
     contacts_controller = ContactsController(send_json=server.send)
@@ -63,6 +53,15 @@ def main() -> int:
     bluetooth_audio_enabled = True
 
     phone_window = PhoneWindow(contacts_controller, call_log_controller, on_dial=controller.dial)
+
+    lock = SingleInstanceLock()
+    if not lock.acquire(on_show_requested=phone_window.show_and_refresh):
+        logger.info(
+            "Another instance of %s is already running - asked it to show its window (%s)",
+            APP_NAME,
+            lock.last_error,
+        )
+        return 0
 
     def on_toggle_bluetooth_audio(enabled: bool) -> None:
         nonlocal bluetooth_audio_enabled

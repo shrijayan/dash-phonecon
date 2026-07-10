@@ -20,10 +20,18 @@ data class ContactRecord(val id: String, val name: String, val number: String)
  */
 object ContactsRepository {
 
+    /** Returns one row per (name, number) pair - the Phone.CONTENT_URI query
+     * can return duplicate rows for the same contact when synced across
+     * multiple accounts (e.g. Google + SIM) and can also emit a masked
+     * variant of the same number (e.g. "+91 98765 43210" alongside
+     * "+919****3210") depending on permission/visibility state, so the
+     * dedupe key uses the number's last 4 digits rather than the exact
+     * string - masking always preserves the trailing digits. */
     fun listAll(context: Context): List<ContactRecord> {
         val results = mutableListOf<ContactRecord>()
+        val seen = HashSet<Pair<String, String>>()
         val projection = arrayOf(
-            ContactsContract.CommonDataKinds.Phone.RAW_CONTACT_ID,
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
             ContactsContract.CommonDataKinds.Phone.NUMBER
         )
@@ -34,15 +42,20 @@ object ContactsRepository {
             null,
             "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} ASC"
         )?.use { cursor ->
-            val idIdx = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.RAW_CONTACT_ID)
+            val idIdx = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
             val nameIdx = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
             val numberIdx = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER)
             while (cursor.moveToNext()) {
+                val name = cursor.getString(nameIdx) ?: ""
+                val number = cursor.getString(numberIdx) ?: ""
+                val digits = number.filter { it.isDigit() }
+                val dedupeKey = name to digits.takeLast(4)
+                if (!seen.add(dedupeKey)) continue
                 results.add(
                     ContactRecord(
                         id = cursor.getLong(idIdx).toString(),
-                        name = cursor.getString(nameIdx) ?: "",
-                        number = cursor.getString(numberIdx) ?: ""
+                        name = name,
+                        number = number
                     )
                 )
             }

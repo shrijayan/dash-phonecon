@@ -43,6 +43,35 @@ class SingleInstanceLockTests(unittest.TestCase):
             if second._socket is not None:
                 second._socket.close()
 
+    def test_second_launch_requests_show_on_first_instance(self) -> None:
+        """This is the fix for 'Dash Phone Con is already running' doing
+        nothing useful: a second launch should make the first instance's
+        window pop up, not just silently fail."""
+        import time
+
+        first = SingleInstanceLock()
+        second = SingleInstanceLock()
+        show_requests = []
+        try:
+            self.assertTrue(first.acquire(on_show_requested=lambda: show_requests.append(True)))
+            self.assertFalse(second.acquire())
+
+            # QSocketNotifier needs the Qt event loop to pump for the
+            # notifier's activated signal to fire - process events briefly.
+            from PySide6.QtWidgets import QApplication
+
+            app = QApplication.instance() or QApplication([])
+            deadline = time.monotonic() + 2.0
+            while not show_requests and time.monotonic() < deadline:
+                app.processEvents()
+
+            self.assertEqual(show_requests, [True])
+        finally:
+            if first._socket is not None:
+                first._socket.close()
+            if second._socket is not None:
+                second._socket.close()
+
 
 if __name__ == "__main__":
     unittest.main()

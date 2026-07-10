@@ -56,15 +56,29 @@ class ContactsController(QObject):
 
         if message_type is MessageType.CONTACTS_RESULT:
             raw_contacts = message.get(FIELD_CONTACTS, []) or []
-            self._contacts = [
-                Contact(
+            seen: set[tuple[str, str]] = set()
+            contacts: list[Contact] = []
+            for item in raw_contacts:
+                if not isinstance(item, dict):
+                    continue
+                contact = Contact(
                     contact_id=str(item.get(FIELD_CONTACT_ID, "")),
                     name=str(item.get(FIELD_NAME, "")),
                     number=str(item.get(FIELD_NUMBER, "")),
                 )
-                for item in raw_contacts
-                if isinstance(item, dict)
-            ]
+                # Defense-in-depth: the phone already dedupes, but some
+                # sync sources send the same contact with a masked number
+                # variant too (e.g. "+91 6383 589 862" vs "+916****9862")
+                # - exact-string matching wouldn't catch that, so key on
+                # the last 4 digits (masking always preserves the suffix)
+                # instead of the full number.
+                digits = "".join(ch for ch in contact.number if ch.isdigit())
+                dedupe_key = (contact.name, digits[-4:] if digits else contact.number)
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
+                contacts.append(contact)
+            self._contacts = contacts
             logger.info("Received %d contacts from phone", len(self._contacts))
             self.contacts_updated.emit(self.contacts)
 
