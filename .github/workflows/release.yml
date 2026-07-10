@@ -247,12 +247,15 @@ jobs:
       - name: Bump version files
         run: python3 .github/scripts/bump_versions.py "${{ needs.version.outputs.version }}"
 
+      - name: Generate changelog section
+        run: python3 .github/scripts/generate_changelog.py "${{ needs.version.outputs.version }}" > /tmp/changelog-section.md
+
       - name: Commit version bump
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add VERSION android/app/build.gradle linux/src/dashphone/__init__.py
+          git add VERSION android/app/build.gradle linux/src/dashphone/__init__.py CHANGELOG.md
           git commit -m "chore: release v${{ needs.version.outputs.version }} [skip ci]"
           git tag "v${{ needs.version.outputs.version }}"
           git push origin HEAD:main
@@ -284,6 +287,8 @@ jobs:
             echo "See the [install guide](https://${owner}.github.io/${repo_name}/docs/ubuntu/install) for manual steps."
             echo
             echo "**Android:** download \`dash-phonecon_${version}_android.apk\` below and open it on your phone (allow \"install from this source\" if asked). See the [install guide](https://${owner}.github.io/${repo_name}/docs/android/install)."
+            echo
+            cat /tmp/changelog-section.md
           } > /tmp/release-notes.md
 
       - name: Create GitHub Release
