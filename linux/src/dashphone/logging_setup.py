@@ -36,3 +36,13 @@ def setup_logging(verbose: bool = False) -> None:
     root_logger.addHandler(console_handler)
 
     logging.getLogger(__name__).info("Dash Phone Con starting - logging to %s", log_file_path())
+
+
+def clear_log_file() -> None:
+    """Truncate the current log file in place, leaving old `.1`/`.2`/`.3`
+    rotation backups untouched (they age out naturally via the existing
+    RotatingFileHandler). Lets a user capture a fresh debug session (e.g.
+    reproducing a Bluetooth routing issue per the README's troubleshooting
+    flow) without wading through unrelated older history."""
+    log_file_path().open("w").close()
+

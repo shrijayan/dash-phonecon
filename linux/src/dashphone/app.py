@@ -17,7 +17,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from dashphone.bluetooth import HfpManager
-from dashphone.logging_setup import log_file_path, setup_logging
+from dashphone.logging_setup import clear_log_file, log_file_path, setup_logging
 from dashphone.media_ducker import MediaDucker
 from dashphone.network import CallServer, device_label
 from dashphone.protocol import MessageType
@@ -67,6 +67,7 @@ def main() -> int:
         on_quit=app.quit,
         device_label=device_label(),
         on_open_log=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_file_path()))),
+        on_clear_log=clear_log_file,
         on_toggle_bluetooth_audio=on_toggle_bluetooth_audio,
         on_dial=controller.dial,
     )

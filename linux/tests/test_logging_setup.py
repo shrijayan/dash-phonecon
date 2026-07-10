@@ -40,5 +40,31 @@ class LogFilePathTests(unittest.TestCase):
             self.assertTrue(str(path).endswith(".local/state/dash-phonecon/dashphone.log"))
 
 
+class ClearLogFileTests(unittest.TestCase):
+    def test_truncates_existing_content(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir, unittest.mock.patch.dict(
+            os.environ, {"XDG_STATE_HOME": tmp_dir}
+        ):
+            path = logging_setup.log_file_path()
+            path.write_text("old log content that should be gone\n" * 10)
+            self.assertGreater(path.stat().st_size, 0)
+
+            logging_setup.clear_log_file()
+
+            self.assertEqual(path.stat().st_size, 0)
+
+    def test_creates_file_if_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir, unittest.mock.patch.dict(
+            os.environ, {"XDG_STATE_HOME": tmp_dir}
+        ):
+            path = logging_setup.log_file_path()
+            self.assertFalse(path.exists())
+
+            logging_setup.clear_log_file()
+
+            self.assertTrue(path.exists())
+            self.assertEqual(path.stat().st_size, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

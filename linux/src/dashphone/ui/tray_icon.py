@@ -44,6 +44,7 @@ class TrayIcon(QSystemTrayIcon):
         on_quit: Callable[[], None],
         device_label: str,
         on_open_log: Callable[[], None] | None = None,
+        on_clear_log: Callable[[], None] | None = None,
         on_toggle_bluetooth_audio: Callable[[bool], None] | None = None,
         on_dial: Callable[[str], None] | None = None,
         parent: QWidget | None = None,
@@ -72,6 +73,10 @@ class TrayIcon(QSystemTrayIcon):
         if on_open_log is not None:
             self._open_log_action.triggered.connect(lambda: on_open_log())
 
+        self._clear_log_action = QAction("Clear Log File")
+        if on_clear_log is not None:
+            self._clear_log_action.triggered.connect(lambda: on_clear_log())
+
         self._bluetooth_audio_action = QAction("Route Call Audio via Bluetooth")
         self._bluetooth_audio_action.setCheckable(True)
         self._bluetooth_audio_action.setChecked(True)
@@ -90,6 +95,7 @@ class TrayIcon(QSystemTrayIcon):
         menu.addAction(self._dial_action)
         menu.addSeparator()
         menu.addAction(self._open_log_action)
+        menu.addAction(self._clear_log_action)
         menu.addAction(self._bluetooth_audio_action)
         menu.addSeparator()
         menu.addAction(quit_action)
