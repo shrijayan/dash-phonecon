@@ -70,7 +70,7 @@ class TrayIcon(QSystemTrayIcon):
         self._on_dial = on_dial
         self._dial_action.triggered.connect(self._prompt_and_dial)
 
-        self._contacts_action = QAction("Contacts\u2026")
+        self._contacts_action = QAction("\u260E Phone \u0026 Contacts\u2026")
         self._on_open_contacts = on_open_contacts
         if on_open_contacts is not None:
             self._contacts_action.triggered.connect(lambda: on_open_contacts())

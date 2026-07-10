@@ -38,6 +38,10 @@ class MessageType(str, Enum):
     CONTACT_DELETE = "CONTACT_DELETE"  # this app -> phone: delete FIELD_CONTACT_ID
     CONTACT_OP_RESULT = "CONTACT_OP_RESULT"  # phone -> this app: FIELD_SUCCESS + optional FIELD_ERROR
 
+    # Call log - this app -> phone request, phone -> this app reply
+    REQUEST_CALL_LOG = "REQUEST_CALL_LOG"  # this app -> phone: "send me recent call history"
+    CALL_LOG_RESULT = "CALL_LOG_RESULT"  # phone -> this app: FIELD_CALLS = [{number, name, type, time, duration}, ...]
+
 
 # JSON field keys (kept as plain constants, matching FIELD_* in MessageType.kt)
 FIELD_TYPE = "type"
@@ -47,6 +51,10 @@ FIELD_CONTACTS = "contacts"
 FIELD_CONTACT_ID = "contact_id"
 FIELD_SUCCESS = "success"
 FIELD_ERROR = "error"
+FIELD_CALLS = "calls"
+FIELD_CALL_TYPE = "call_type"
+FIELD_TIMESTAMP = "timestamp"
+FIELD_DURATION = "duration"
 
 
 def parse_message_type(raw: dict) -> MessageType | None:

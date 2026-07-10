@@ -107,6 +107,7 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
                 }
             }
             MessageType.REQUEST_CONTACTS -> mainHandler.post { sendContactsList() }
+            MessageType.REQUEST_CALL_LOG -> mainHandler.post { sendCallLog() }
             MessageType.CONTACT_ADD -> mainHandler.post {
                 val name = json.optString(MessageType.FIELD_NAME)
                 val number = json.optString(MessageType.FIELD_NUMBER)
@@ -238,6 +239,19 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
             .apply { if (error != null) put(MessageType.FIELD_ERROR, error) }
             .toString()
         runCatching { wsClient.send(payload) }.onFailure { Log.e(TAG, "send failed: ${it.message}", it) }
+    }
+
+    // --- Call log ---
+
+    private fun sendCallLog() {
+        runCatching {
+            val entries = CallLogRepository.recent(this)
+            val payload = JSONObject()
+                .put(MessageType.FIELD_TYPE, MessageType.CALL_LOG_RESULT)
+                .put(MessageType.FIELD_CALLS, CallLogRepository.toJsonArray(entries))
+                .toString()
+            wsClient.send(payload)
+        }.onFailure { Log.e(TAG, "Failed to read call log: ${it.message}", it) }
     }
 
     // --- Notifications ---
