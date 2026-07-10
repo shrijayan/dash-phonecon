@@ -9,4 +9,5 @@ enum MessageType: String {
     case reject = "REJECT"
     case hangup = "HANGUP"
     case pong = "PONG"
+    case dial = "DIAL"
 }

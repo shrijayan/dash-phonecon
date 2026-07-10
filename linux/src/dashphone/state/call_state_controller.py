@@ -16,7 +16,7 @@ from typing import Callable
 from PySide6.QtCore import QObject, Signal
 
 from dashphone.protocol import FIELD_NAME, FIELD_NUMBER, MessageType, parse_message_type
-from dashphone.state.call_state import CallState
+from dashphone.state.call_state import CallPhase, CallState
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ CommandSender = Callable[[dict], None]
 
 class CallStateController(QObject):
     state_changed = Signal(object)  # emits a CallState
+    call_missed = Signal(str, str)  # emits (name, number) for a missed call
 
     def __init__(self, send_json: CommandSender, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -54,20 +55,37 @@ class CallStateController(QObject):
 
         elif message_type is MessageType.CALL_ENDED:
             logger.info("Call ended")
+            # self._state still holds the *previous* phase here - CALL_ENDED
+            # while still RINGING (no CALL_ACTIVE in between) means the call
+            # rang out or was declined on the phone itself, without this
+            # app's user ever answering it. Distinguish that from a normal
+            # "call was active, then hung up" ending before overwriting it.
+            if self._state.phase is CallPhase.RINGING:
+                self.call_missed.emit(self._state.name, self._state.number)
             self._set_state(CallState.idle())
 
         elif message_type is MessageType.PING:
             self.send_command(MessageType.PONG)
 
         else:
-            logger.warning("Ignoring unknown/unsupported message: %r", message)
+            # Every controller receives every incoming message (see CallServer
+            # broadcasting all messages to all handlers) and ignores the ones
+            # it doesn't own - e.g. CONTACTS_RESULT/CALL_LOG_RESULT are handled
+            # by ContactsController/CallLogController, not here. debug (not
+            # warning) since "unknown to this controller" is expected traffic,
+            # not an actual problem.
+            logger.debug("Ignoring message not handled by CallStateController: %r", message_type)
 
     def send_command(self, message_type: MessageType) -> None:
         """Send a bare {"type": "..."} command to the phone (ANSWER/REJECT/HANGUP/PONG)."""
         self._send_json({"type": message_type.value})
 
     def dial(self, number: str) -> None:
-        """Send a DIAL command asking the phone to place an outgoing call."""
+        """Ask the phone to place an outgoing call to ``number`` (dial-from-desktop).
+
+        Kept separate from send_command since DIAL carries a payload field
+        (FIELD_NUMBER) rather than being a bare {"type": ...} message.
+        """
         self._send_json({"type": MessageType.DIAL.value, FIELD_NUMBER: number})
 
     def _set_state(self, new_state: CallState) -> None:

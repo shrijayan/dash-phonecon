@@ -55,6 +55,12 @@ def paired_phones() -> list[BluetoothPhone]:
         device = interfaces.get(_DEVICE_INTERFACE)
         if device is None or not bool(device.get("Paired", False)):
             continue
+        if bool(device.get("Blocked", False)):
+            # A device the user explicitly blocked (e.g. via `bluetoothctl
+            # block <mac>` or their Bluetooth settings) still reports
+            # Paired: true - never route call audio to/from it, that would
+            # directly contradict the user's own block action.
+            continue
         if _major_device_class(int(device.get("Class", 0))) != _PHONE_MAJOR_DEVICE_CLASS:
             continue
         phones.append(_to_phone(device))
@@ -63,9 +69,12 @@ def paired_phones() -> list[BluetoothPhone]:
 
 def find_paired_phone() -> BluetoothPhone | None:
     """The phone to route call audio for: the connected one if there is
-    exactly one, otherwise the first paired phone found."""
+    exactly one, otherwise the first paired phone found - ties (e.g. zero
+    phones currently connected, the common case right after boot) are
+    broken deterministically by name so the pick doesn't silently change
+    across app restarts depending on BlueZ's D-Bus dict iteration order."""
     phones = paired_phones()
     if not phones:
         return None
-    phones.sort(key=lambda phone: phone.connected, reverse=True)
+    phones.sort(key=lambda phone: (not phone.connected, phone.name.lower()))
     return phones[0]

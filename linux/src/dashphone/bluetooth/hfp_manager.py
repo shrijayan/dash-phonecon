@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 _MAX_ATTEMPTS = 20
 _RETRY_INTERVAL_MS = 1000
 
+_STARTUP_SCAN_ATTEMPTS = 5
+_STARTUP_SCAN_RETRY_INTERVAL_MS = 1000
+
 
 class HfpManager(QObject):
     status_changed = Signal(str)  # human-readable status, surfaced in logs today
@@ -41,11 +44,38 @@ class HfpManager(QObject):
         self._saved_source: str | None = None
 
     def start(self) -> None:
-        """Look for a paired phone once, at app startup."""
+        """Look for a paired phone at app startup.
+
+        Retries a bounded number of times if BlueZ/D-Bus is not yet
+        reachable (a real startup ordering race with `bluetoothd` on
+        some desktop-autostart setups), but does NOT retry when zero
+        paired phones are found - that is a legitimate, stable end
+        state, not a transient failure.
+        """
+        self._attempt_startup_scan(attempt=1)
+
+    def _attempt_startup_scan(self, attempt: int) -> None:
         try:
             self._phone = find_paired_phone()
         except DBusException as error:
-            logger.info("Bluetooth audio routing disabled (BlueZ not reachable): %s", error)
+            if attempt >= _STARTUP_SCAN_ATTEMPTS:
+                logger.info(
+                    "Bluetooth audio routing disabled (BlueZ not reachable after %s attempts): %s",
+                    attempt,
+                    error,
+                )
+                return
+            logger.debug(
+                "BlueZ not reachable yet (attempt %s/%s) - retrying in %sms: %s",
+                attempt,
+                _STARTUP_SCAN_ATTEMPTS,
+                _STARTUP_SCAN_RETRY_INTERVAL_MS,
+                error,
+            )
+            QTimer.singleShot(
+                _STARTUP_SCAN_RETRY_INTERVAL_MS,
+                lambda: self._attempt_startup_scan(attempt + 1),
+            )
             return
 
         if self._phone is None:
@@ -81,7 +111,14 @@ class HfpManager(QObject):
         if not self._routing_active or self._phone is None:
             return
 
-        if self._try_switch_now():
+        try:
+            switched = self._try_switch_now()
+        except audio.PactlNotInstalledError as error:
+            logger.warning("Could not switch audio to phone: %s", error)
+            self._emit_status(f"pactl is not installed - cannot route call audio: {error}")
+            return
+
+        if switched:
             return
 
         if attempt >= _MAX_ATTEMPTS:
@@ -119,6 +156,8 @@ class HfpManager(QObject):
             logger.info("Switched system audio to '%s'", self._phone.name)
             self._emit_status(f"Speaking through {self._phone.name}")
             return True
+        except audio.PactlNotInstalledError:
+            raise
         except audio.AudioRouterError as error:
             logger.warning("Could not switch audio to phone: %s", error)
             return False

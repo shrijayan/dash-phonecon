@@ -12,14 +12,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QApplication
 
 from dashphone.protocol import MessageType
 from dashphone.state import CallPhase, CallStateController
 
-# QObject signal/slot plumbing wants an application instance to exist,
-# even for tests that never enter an event loop.
-_app = QCoreApplication.instance() or QCoreApplication(sys.argv[:1])
+# QObject signal/slot plumbing wants an application instance to exist, even
+# for tests that never enter an event loop. Use QApplication (not just
+# QCoreApplication) so that if this module happens to run first during
+# `discover`, other test modules in the same process (e.g. test_tray_icon.py,
+# which constructs a QSystemTrayIcon) inherit a GUI-capable singleton instead
+# of a bare QCoreApplication - the latter segfaults QSystemTrayIcon.
+_app = QApplication.instance() or QApplication(sys.argv[:1])
 
 
 class CallStateControllerTests(unittest.TestCase):
@@ -73,6 +77,10 @@ class CallStateControllerTests(unittest.TestCase):
         self.controller.send_command(MessageType.ANSWER)
         self.assertEqual(self.sent_messages, [{"type": "ANSWER"}])
 
+    def test_dial_emits_dial_type_with_number(self) -> None:
+        self.controller.dial("+15551234567")
+        self.assertEqual(self.sent_messages, [{"type": "DIAL", "number": "+15551234567"}])
+
     def test_state_changed_signal_fires_on_every_transition(self) -> None:
         seen_phases: list[CallPhase] = []
         self.controller.state_changed.connect(lambda state: seen_phases.append(state.phase))
@@ -82,6 +90,40 @@ class CallStateControllerTests(unittest.TestCase):
         self.controller.handle_event({"type": "CALL_ENDED"})
 
         self.assertEqual(seen_phases, [CallPhase.RINGING, CallPhase.ACTIVE, CallPhase.IDLE])
+
+    def test_call_missed_fires_when_ringing_ends_without_going_active(self) -> None:
+        missed: list[tuple[str, str]] = []
+        self.controller.call_missed.connect(lambda name, number: missed.append((name, number)))
+
+        self.controller.handle_event(
+            {"type": "CALL_RINGING", "number": "+155****4567", "name": "John Doe"}
+        )
+        self.controller.handle_event({"type": "CALL_ENDED"})
+
+        self.assertEqual(missed, [("John Doe", "+155****4567")])
+        self.assertEqual(self.controller.state.phase, CallPhase.IDLE)
+
+    def test_call_missed_does_not_fire_for_a_completed_call(self) -> None:
+        missed: list[tuple[str, str]] = []
+        self.controller.call_missed.connect(lambda name, number: missed.append((name, number)))
+
+        self.controller.handle_event(
+            {"type": "CALL_RINGING", "number": "+155****4567", "name": "John Doe"}
+        )
+        self.controller.handle_event({"type": "CALL_ACTIVE"})
+        self.controller.handle_event({"type": "CALL_ENDED"})
+
+        self.assertEqual(missed, [])
+
+    def test_call_missed_does_not_fire_when_ending_from_idle(self) -> None:
+        """A stray CALL_ENDED with no prior RINGING/ACTIVE shouldn't be
+        reported as a missed call - there was never a call to miss."""
+        missed: list[tuple[str, str]] = []
+        self.controller.call_missed.connect(lambda name, number: missed.append((name, number)))
+
+        self.controller.handle_event({"type": "CALL_ENDED"})
+
+        self.assertEqual(missed, [])
 
 
 if __name__ == "__main__":

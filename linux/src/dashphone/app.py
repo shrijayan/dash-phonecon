@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import sys
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication
 
@@ -108,21 +108,40 @@ def main() -> int:
             popup.close()
 
         if state.phase is CallPhase.ACTIVE:
-            hfp_manager.open_audio()
+            if bluetooth_audio_enabled:
+                hfp_manager.open_audio()
             media_ducker.duck_others()
         elif state.phase is CallPhase.IDLE:
-            hfp_manager.close_audio()
+            if bluetooth_audio_enabled:
+                hfp_manager.close_audio()
             media_ducker.restore_others()
+
+    def on_bind_failed(error: str) -> None:
+        message = f"Port {server.port} unavailable: {error}"
+        logger.error(message)
+        tray.set_bind_error(message)
+
+    def on_call_missed(name: str, number: str) -> None:
+        logger.info("Missed call: %s (%s)", name or "Unknown", number)
+        tray.notify_missed_call(name, number)
 
     server.message_received.connect(controller.handle_event)
     server.message_received.connect(contacts_controller.handle_event)
     server.message_received.connect(call_log_controller.handle_event)
     server.connection_changed.connect(tray.set_connected)
+    server.bind_failed.connect(on_bind_failed)
+    server.listening.connect(tray.set_listening)
     controller.state_changed.connect(on_state_changed)
+    controller.call_missed.connect(on_call_missed)
 
     server.start()
     hfp_manager.start()
     tray.show()
+
+    device_label_timer = QTimer()
+    device_label_timer.setInterval(30_000)  # 30s: catches Wi-Fi switches/suspend-resume without needing an OS network-change hook
+    device_label_timer.timeout.connect(lambda: tray.set_device_label(device_label()))
+    device_label_timer.start()
 
     logger.info("%s is running", APP_NAME)
     exit_code = app.exec()

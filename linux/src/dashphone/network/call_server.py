@@ -23,6 +23,35 @@ logger = logging.getLogger(__name__)
 DEFAULT_PORT = 8765
 DEFAULT_HOST = "0.0.0.0"  # listen on every interface - the phone connects over LAN/Tailscale
 
+BIND_RETRY_ATTEMPTS = 3
+BIND_RETRY_DELAY_SECONDS = 1.0
+
+
+async def bind_with_retries(bind_fn, attempts: int = BIND_RETRY_ATTEMPTS, delay: float = BIND_RETRY_DELAY_SECONDS):
+    """Call the async ``bind_fn`` (no args), retrying a bounded number of times on OSError.
+
+    This exists to survive the brief window right after a restart where the
+    previous process's WebSocket TCP socket is still lingering in TIME_WAIT
+    even though `SingleInstanceLock`'s abstract-namespace socket has already
+    been released - without a retry, that race causes an immediate,
+    permanent `bind_failed`. Kept as a free function (not a method) so it's
+    trivially unit-testable with a fake `bind_fn` and no real socket/asyncio
+    server involved.
+
+    Raises the last `OSError` if every attempt fails.
+    """
+    last_error: Optional[OSError] = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return await bind_fn()
+        except OSError as error:
+            last_error = error
+            logger.warning("Bind attempt %s/%s failed: %s", attempt, attempts, error)
+            if attempt < attempts:
+                await asyncio.sleep(delay)
+    assert last_error is not None
+    raise last_error
+
 
 class CallServer(QObject):
     """Owns the WebSocket listener.
@@ -36,6 +65,7 @@ class CallServer(QObject):
     connection_changed = Signal(bool)  # True once a phone connects, False when it disconnects
     message_received = Signal(dict)  # one decoded JSON message from the phone
     bind_failed = Signal(str)  # emitted if the port could not be bound (e.g. already running)
+    listening = Signal(int)  # emitted with the port once the server has actually started listening
 
     def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -107,9 +137,17 @@ class CallServer(QObject):
         self._loop = asyncio.get_running_loop()
         self._stop_event = asyncio.Event()
 
-        async with websockets.serve(self._handle_client, self._host, self._port):
+        async def _bind():
+            return await websockets.serve(self._handle_client, self._host, self._port)
+
+        server = await bind_with_retries(_bind)
+        self.listening.emit(self._port)
+        try:
             logger.info("Listening for the phone on %s:%s", self._host, self._port)
             await self._stop_event.wait()
+        finally:
+            server.close()
+            await server.wait_closed()
 
         logger.info("WebSocket server stopped")
 
@@ -138,6 +176,11 @@ class CallServer(QObject):
         previous = self._current_connection
         self._current_connection = connection
         if previous is not None and previous is not connection:
+            logger.info(
+                "Replacing existing phone connection from %s with new connection from %s",
+                previous.remote_address,
+                connection.remote_address,
+            )
             await previous.close()
 
     def _dispatch_message(self, raw_message: str | bytes) -> None:

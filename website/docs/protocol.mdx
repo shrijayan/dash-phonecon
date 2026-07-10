@@ -30,18 +30,20 @@ always the **client**, dialing whichever IP address you typed into it.
 | `{ "type": "REJECT" }` | Declines the ringing call. |
 | `{ "type": "HANGUP" }` | Ends the active call. |
 | `{ "type": "PONG" }` | Keepalive reply. |
-| `{ "type": "DIAL", "number": "+15551234567" }` | Places an outgoing call to `number` via `TelecomManager`. |
+| `{ "type": "DIAL", "number": "+155****4567" }` | Places an outgoing call to `number` via `TelecomManager.placeCall()`. Requires the `CALL_PHONE` runtime permission on the phone. |
 | `{ "type": "REQUEST_CONTACTS" }` | Asks the phone for its full contact list. |
 | `{ "type": "CONTACT_ADD", "name": "...", "number": "..." }` | Creates a contact on the phone. |
 | `{ "type": "CONTACT_UPDATE", "contact_id": "...", "name": "...", "number": "..." }` | Updates an existing contact. |
 | `{ "type": "CONTACT_DELETE", "contact_id": "..." }` | Deletes a contact. |
+| `{ "type": "REQUEST_CALL_LOG" }` | Asks the phone for its recent call history. |
 
-## Phone → desktop (Contacts replies)
+## Phone → desktop (Contacts & Call Log replies)
 
 | Message | When it's sent |
 |---|---|
 | `{ "type": "CONTACTS_RESULT", "contacts": [{"id": "...", "name": "...", "number": "..."}, ...] }` | Reply to `REQUEST_CONTACTS`, and after any successful add/update/delete. |
 | `{ "type": "CONTACT_OP_RESULT", "success": true, "error": "..." }` | Reply to `CONTACT_ADD`/`CONTACT_UPDATE`/`CONTACT_DELETE`. `error` is present only when `success` is `false`. |
+| `{ "type": "CALL_LOG_RESULT", "calls": [{"number": "...", "name": "...", "call_type": 1, "timestamp": 0, "duration": 0}, ...] }` | Reply to `REQUEST_CALL_LOG`. `call_type` follows `android.provider.CallLog.Calls` (1=incoming, 2=outgoing, 3=missed). |
 
 ## Connection lifecycle
 
