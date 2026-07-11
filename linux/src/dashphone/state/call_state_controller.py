@@ -10,12 +10,13 @@ lets each piece be tested and changed independently.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import datetime
 from typing import Callable
 
 from PySide6.QtCore import QObject, Signal
 
-from dashphone.protocol import FIELD_NAME, FIELD_NUMBER, MessageType, parse_message_type
+from dashphone.protocol import FIELD_MUTED, FIELD_NAME, FIELD_NUMBER, MessageType, parse_message_type
 from dashphone.state.call_state import CallPhase, CallState
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,17 @@ class CallStateController(QObject):
         (FIELD_NUMBER) rather than being a bare {"type": ...} message.
         """
         self._send_json({"type": MessageType.DIAL.value, FIELD_NUMBER: number})
+
+    def toggle_mute(self) -> None:
+        """Flip the mic-mute state for the active call and tell the phone.
+
+        Only meaningful mid-call, but harmless if called outside one - the
+        in-call bar that calls this only shows the Mute button while
+        CallPhase.ACTIVE anyway.
+        """
+        muted = not self._state.is_muted
+        self._send_json({"type": MessageType.MUTE.value, FIELD_MUTED: muted})
+        self._set_state(replace(self._state, is_muted=muted))
 
     def _set_state(self, new_state: CallState) -> None:
         self._state = new_state

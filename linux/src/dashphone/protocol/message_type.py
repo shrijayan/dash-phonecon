@@ -29,6 +29,7 @@ class MessageType(str, Enum):
     HANGUP = "HANGUP"
     PONG = "PONG"
     DIAL = "DIAL"  # this app -> phone: place an outgoing call to FIELD_NUMBER via the phone's TelecomManager
+    MUTE = "MUTE"  # this app -> phone: FIELD_MUTED true/false - mute/unmute the phone's mic during an active call
 
     # Contacts CRUD - bidirectional, always initiated by this app, phone replies
     REQUEST_CONTACTS = "REQUEST_CONTACTS"  # this app -> phone: "send me your full contact list"
@@ -55,6 +56,7 @@ FIELD_CALLS = "calls"
 FIELD_CALL_TYPE = "call_type"
 FIELD_TIMESTAMP = "timestamp"
 FIELD_DURATION = "duration"
+FIELD_MUTED = "muted"
 
 
 def parse_message_type(raw: dict) -> MessageType | None:

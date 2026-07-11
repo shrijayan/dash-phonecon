@@ -81,6 +81,27 @@ class CallStateControllerTests(unittest.TestCase):
         self.controller.dial("+15551234567")
         self.assertEqual(self.sent_messages, [{"type": "DIAL", "number": "+15551234567"}])
 
+    def test_toggle_mute_sends_mute_true_and_updates_state(self) -> None:
+        self.controller.handle_event({"type": "CALL_ACTIVE"})
+        self.controller.toggle_mute()
+        self.assertEqual(self.sent_messages[-1], {"type": "MUTE", "muted": True})
+        self.assertTrue(self.controller.state.is_muted)
+
+    def test_toggle_mute_twice_unmutes(self) -> None:
+        self.controller.handle_event({"type": "CALL_ACTIVE"})
+        self.controller.toggle_mute()
+        self.controller.toggle_mute()
+        self.assertEqual(self.sent_messages[-1], {"type": "MUTE", "muted": False})
+        self.assertFalse(self.controller.state.is_muted)
+
+    def test_new_call_starts_unmuted(self) -> None:
+        """Mute must not leak from one call into the next."""
+        self.controller.handle_event({"type": "CALL_ACTIVE"})
+        self.controller.toggle_mute()
+        self.controller.handle_event({"type": "CALL_ENDED"})
+        self.controller.handle_event({"type": "CALL_ACTIVE"})
+        self.assertFalse(self.controller.state.is_muted)
+
     def test_state_changed_signal_fires_on_every_transition(self) -> None:
         seen_phases: list[CallPhase] = []
         self.controller.state_changed.connect(lambda state: seen_phases.append(state.phase))

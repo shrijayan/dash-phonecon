@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from datetime import datetime
 
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -26,7 +27,7 @@ from dashphone.single_instance import SingleInstanceLock
 from dashphone.state import CallPhase, CallState, CallStateController
 from dashphone.state.call_log_controller import CallLogController
 from dashphone.state.contacts_controller import ContactsController
-from dashphone.ui import CallPopupWindow, PhoneWindow, TrayIcon
+from dashphone.ui import CallPopupWindow, InCallBar, PhoneWindow, TrayIcon
 
 APP_NAME = "Dash Phone Con"
 
@@ -52,6 +53,12 @@ def main() -> int:
         on_answer=lambda: controller.send_command(MessageType.ANSWER),
         on_decline=lambda: controller.send_command(MessageType.REJECT),
     )
+    in_call_bar = InCallBar(
+        on_toggle_mute=controller.toggle_mute,
+        on_hangup=lambda: controller.send_command(MessageType.HANGUP),
+    )
+    call_timer = QTimer()
+    call_timer.setInterval(1000)
     bluetooth_audio_enabled = True
 
     phone_window = PhoneWindow(contacts_controller, call_log_controller, on_dial=controller.dial)
@@ -111,10 +118,28 @@ def main() -> int:
             if bluetooth_audio_enabled:
                 hfp_manager.open_audio()
             media_ducker.duck_others()
-        elif state.phase is CallPhase.IDLE:
-            if bluetooth_audio_enabled:
-                hfp_manager.close_audio()
-            media_ducker.restore_others()
+            in_call_bar.show_call(name=state.name, number=state.number)
+            in_call_bar.set_muted(state.is_muted)
+            update_call_timer_text()
+            call_timer.start()
+        else:
+            call_timer.stop()
+            in_call_bar.close()
+            if state.phase is CallPhase.IDLE:
+                if bluetooth_audio_enabled:
+                    hfp_manager.close_audio()
+                media_ducker.restore_others()
+
+    def update_call_timer_text() -> None:
+        start_time = controller.state.start_time
+        if start_time is None:
+            in_call_bar.set_elapsed_text("00:00")
+            return
+        elapsed = max(0, int((datetime.now() - start_time).total_seconds()))
+        minutes, seconds = divmod(elapsed, 60)
+        in_call_bar.set_elapsed_text(f"{minutes:02d}:{seconds:02d}")
+
+    call_timer.timeout.connect(update_call_timer_text)
 
     def on_bind_failed(error: str) -> None:
         message = f"Port {server.port} unavailable: {error}"

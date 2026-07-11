@@ -10,6 +10,7 @@ enum CallState {
 @MainActor
 final class CallStateViewModel: ObservableObject {
     @Published var callState: CallState = .idle
+    @Published var isMuted: Bool = false
 
     private var server: CallServer?
     private var hfpManager: HFPManager?
@@ -36,11 +37,13 @@ final class CallStateViewModel: ObservableObject {
 
         case .callActive:
             callState = .active(startTime: Date())
+            isMuted = false
             closePopup()
             hfpManager?.openAudio()
 
         case .callEnded:
             callState = .idle
+            isMuted = false
             closePopup()
             hfpManager?.closeAudio()
 
@@ -55,6 +58,11 @@ final class CallStateViewModel: ObservableObject {
     func sendCommand(_ type: MessageType) {
         let payload: [String: Any] = ["type": type.rawValue]
         server?.send(json: payload)
+    }
+
+    func toggleMute() {
+        isMuted.toggle()
+        server?.send(json: ["type": MessageType.mute.rawValue, "muted": isMuted])
     }
 
     private func showPopup(number: String, name: String) {
