@@ -31,6 +31,7 @@ always the **client**, dialing whichever IP address you typed into it.
 | `{ "type": "HANGUP" }` | Ends the active call. |
 | `{ "type": "PONG" }` | Keepalive reply. |
 | `{ "type": "DIAL", "number": "+155****4567" }` | Places an outgoing call to `number` via `TelecomManager.placeCall()`. Requires the `CALL_PHONE` runtime permission on the phone. |
+| `{ "type": "MUTE", "muted": true }` | Mutes/unmutes the phone's mic mid-call via `AudioManager.isMicrophoneMute`. Sent by the desktop's in-call bar/mute button; the phone auto-unmutes on `CALL_ENDED` so mute never leaks into the next call. |
 | `{ "type": "REQUEST_CONTACTS" }` | Asks the phone for its full contact list. |
 | `{ "type": "CONTACT_ADD", "name": "...", "number": "..." }` | Creates a contact on the phone. |
 | `{ "type": "CONTACT_UPDATE", "contact_id": "...", "name": "...", "number": "..." }` | Updates an existing contact. |

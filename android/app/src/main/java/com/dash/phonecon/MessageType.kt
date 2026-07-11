@@ -13,6 +13,7 @@ object MessageType {
     const val HANGUP = "HANGUP"
     const val PONG = "PONG"
     const val DIAL = "DIAL"
+    const val MUTE = "MUTE"
 
     // Contacts CRUD
     const val REQUEST_CONTACTS = "REQUEST_CONTACTS"
@@ -38,4 +39,5 @@ object MessageType {
     const val FIELD_CALL_TYPE = "call_type"
     const val FIELD_TIMESTAMP = "timestamp"
     const val FIELD_DURATION = "duration"
+    const val FIELD_MUTED = "muted"
 }

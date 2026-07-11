@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -29,6 +29,11 @@ from PySide6.QtWidgets import (
 
 from dashphone.state.call_log_controller import CallLogController, CallLogEntry
 from dashphone.state.contacts_controller import Contact, ContactsController
+
+# Debounce delay for the contacts search box - typing re-filters and
+# rebuilds the whole (potentially 1000+ item) list, so we wait for a
+# short pause in typing instead of doing that on every keystroke.
+_SEARCH_DEBOUNCE_MS = 200
 
 _DARK_STYLE = """
 QWidget { background-color: #1e1e21; color: #f0f0f0; font-size: 13px; }
@@ -153,62 +158,27 @@ class _DialEntryRow(QWidget):
             self._entry.clear()
 
 
-def _contact_row_widget(contact: Contact) -> QWidget:
-    avatar = QLabel(_initials(contact.name, contact.number))
-    avatar.setObjectName("avatarLabel")
+def _contact_item_text(contact: Contact) -> str:
+    """Plain two-line label text for a contact row.
 
-    name_label = QLabel(contact.name or contact.number)
-    name_label.setObjectName("contactName")
-    number_label = QLabel(contact.number if contact.name else "")
-    number_label.setObjectName("contactNumber")
-
-    text_column = QVBoxLayout()
-    text_column.setSpacing(1)
-    text_column.addWidget(name_label)
+    Building a full QWidget (QLabel avatar + 2 more QLabels + nested
+    QHBoxLayout/QVBoxLayout) per contact and wiring it in via
+    `QListWidget.setItemWidget` is the classic Qt perf trap for large
+    lists: with ~1500 contacts that's ~6000 real widgets constructed on
+    every refresh *and* on every keystroke while searching (since
+    `_refresh_list` clears and rebuilds the whole list). A bare
+    QListWidgetItem with multi-line text is drawn by the list's item
+    delegate with no child widgets at all - dramatically cheaper, and
+    is what actually fixes the multi-second search lag.
+    """
     if contact.name:
-        text_column.addWidget(number_label)
-
-    row = QHBoxLayout()
-    row.setContentsMargins(6, 6, 6, 6)
-    row.addWidget(avatar)
-    row.addSpacing(10)
-    row.addLayout(text_column)
-    row.addStretch()
-
-    widget = QWidget()
-    widget.setLayout(row)
-    return widget
+        return f"{contact.name}\n{contact.number}"
+    return contact.number
 
 
-def _call_log_row_widget(entry: CallLogEntry) -> QWidget:
+def _call_log_item_text(entry: CallLogEntry) -> str:
     icon = _CALL_TYPE_ICON.get(entry.call_type_label, "")
-    color = _CALL_TYPE_COLOR.get(entry.call_type_label, "#9a9a9e")
-
-    icon_label = QLabel(icon)
-    icon_label.setStyleSheet(f"color: {color}; font-size: 16px; font-weight: 700;")
-    icon_label.setFixedWidth(20)
-
-    name_label = QLabel(entry.display_name)
-    name_label.setObjectName("contactName")
-    type_label = QLabel(entry.call_type_label)
-    type_label.setObjectName("contactNumber")
-    type_label.setStyleSheet(f"color: {color};")
-
-    text_column = QVBoxLayout()
-    text_column.setSpacing(1)
-    text_column.addWidget(name_label)
-    text_column.addWidget(type_label)
-
-    row = QHBoxLayout()
-    row.setContentsMargins(6, 6, 6, 6)
-    row.addWidget(icon_label)
-    row.addSpacing(6)
-    row.addLayout(text_column)
-    row.addStretch()
-
-    widget = QWidget()
-    widget.setLayout(row)
-    return widget
+    return f"{icon} {entry.display_name}\n{entry.call_type_label}"
 
 
 class _ContactsTab(QWidget):
@@ -222,11 +192,18 @@ class _ContactsTab(QWidget):
 
         self._search_box = QLineEdit()
         self._search_box.setPlaceholderText("\U0001f50d  Search name or number\u2026")
-        self._search_box.textChanged.connect(self._refresh_list)
+        self._search_box.textChanged.connect(self._on_search_text_changed)
+        self._search_debounce = QTimer(self)
+        self._search_debounce.setSingleShot(True)
+        self._search_debounce.setInterval(_SEARCH_DEBOUNCE_MS)
+        self._search_debounce.timeout.connect(self._refresh_list)
 
         self._list = QListWidget()
         self._list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self._list.itemDoubleClicked.connect(lambda _item: self._dial_selected())
+        # No itemDoubleClicked -> dial here on purpose: a quick double-click
+        # while just trying to select a contact (e.g. re-clicking to make
+        # sure it's highlighted) used to place an unintended call. Dialing
+        # now always requires an explicit tap on the Dial button.
 
         self._empty_label = _empty_state_label("No contacts yet \u2014 tap Add to create one.")
 
@@ -267,15 +244,16 @@ class _ContactsTab(QWidget):
     def _on_operation_failed(self, error: str) -> None:
         QMessageBox.warning(self, "Contacts", f"That didn't work: {error}")
 
+    def _on_search_text_changed(self) -> None:
+        self._search_debounce.start()
+
     def _refresh_list(self) -> None:
         query = self._search_box.text()
         filtered = ContactsController.filter_contacts(self._contacts, query)
         self._list.clear()
         for contact in filtered:
-            item = QListWidgetItem(self._list)
+            item = QListWidgetItem(_contact_item_text(contact), self._list)
             item.setData(Qt.ItemDataRole.UserRole, contact)
-            item.setSizeHint(_contact_row_widget(contact).sizeHint())
-            self._list.setItemWidget(item, _contact_row_widget(contact))
         self._list.setVisible(bool(filtered))
         self._empty_label.setVisible(not filtered)
 
@@ -320,7 +298,8 @@ class _CallLogTab(QWidget):
         self._on_dial = on_dial
 
         self._list = QListWidget()
-        self._list.itemDoubleClicked.connect(lambda _item: self._dial_selected())
+        # No itemDoubleClicked -> dial here either, for the same reason as
+        # the Contacts tab: dialing must be an explicit "Call Back" tap.
         self._empty_label = _empty_state_label("No recent calls.")
 
         dial_button = QPushButton("\u260E Call Back")
@@ -345,10 +324,8 @@ class _CallLogTab(QWidget):
     def _on_call_log_updated(self, entries: list[CallLogEntry]) -> None:
         self._list.clear()
         for entry in entries:
-            item = QListWidgetItem(self._list)
+            item = QListWidgetItem(_call_log_item_text(entry), self._list)
             item.setData(Qt.ItemDataRole.UserRole, entry)
-            item.setSizeHint(_call_log_row_widget(entry).sizeHint())
-            self._list.setItemWidget(item, _call_log_row_widget(entry))
         self._list.setVisible(bool(entries))
         self._empty_label.setVisible(not entries)
 

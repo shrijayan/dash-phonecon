@@ -23,6 +23,7 @@ class CallState:
     number: str = ""
     name: str = ""
     start_time: datetime | None = field(default=None)
+    is_muted: bool = False
 
     @staticmethod
     def idle() -> "CallState":

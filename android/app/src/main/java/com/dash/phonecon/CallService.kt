@@ -98,6 +98,10 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
             MessageType.PONG -> wsClient.resetPingTimer()
             MessageType.ANSWER -> mainHandler.post { answerCall() }
             MessageType.REJECT, MessageType.HANGUP -> mainHandler.post { endCall() }
+            MessageType.MUTE -> {
+                val muted = json.optBoolean(MessageType.FIELD_MUTED)
+                mainHandler.post { setMicMuted(muted) }
+            }
             MessageType.DIAL -> {
                 val number = json.optString(MessageType.FIELD_NUMBER)
                 if (number.isNotEmpty()) {
@@ -151,15 +155,40 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
     }
 
     override fun onCallActive() {
-        routeAudioToMac()
+        logAudioDiagnostics("CALL_ACTIVE")
         val payload = JSONObject()
             .put(MessageType.FIELD_TYPE, MessageType.CALL_ACTIVE)
             .toString()
         runCatching { wsClient.send(payload) }.onFailure { Log.e(TAG, "send failed: ${it.message}", it) }
     }
 
+    /** One-shot audio-state dump to diagnose "far end hears an echo of themselves" -
+     * logs Android's actual call audio routing state so we can tell whether this is
+     * speakerphone-on-acoustic-leak, a wrong AudioManager mode, or something else,
+     * instead of guessing. Never throws - diagnostics must never break call handling. */
+    private fun logAudioDiagnostics(trigger: String) {
+        runCatching {
+            val audioManager = getSystemService(AudioManager::class.java)
+            val modeStr = when (audioManager.mode) {
+                AudioManager.MODE_NORMAL -> "MODE_NORMAL"
+                AudioManager.MODE_RINGTONE -> "MODE_RINGTONE"
+                AudioManager.MODE_IN_CALL -> "MODE_IN_CALL"
+                AudioManager.MODE_IN_COMMUNICATION -> "MODE_IN_COMMUNICATION"
+                else -> "MODE_${audioManager.mode}"
+            }
+            Log.i(
+                TAG,
+                "[audio-diag] $trigger: mode=$modeStr isSpeakerphoneOn=${audioManager.isSpeakerphoneOn} " +
+                    "isMicrophoneMute=${audioManager.isMicrophoneMute} isBluetoothScoOn=${audioManager.isBluetoothScoOn} " +
+                    "isBluetoothA2dpOn=${audioManager.isBluetoothA2dpOn} isWiredHeadsetOn=${audioManager.isWiredHeadsetOn} " +
+                    "streamVolume(VOICE_CALL)=${audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/" +
+                    "${audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}"
+            )
+        }.onFailure { Log.w(TAG, "[audio-diag] Could not capture audio diagnostics: ${it.message}") }
+    }
+
     override fun onCallEnded() {
-        stopBluetoothAudio()
+        setMicMuted(false)
         val payload = JSONObject()
             .put(MessageType.FIELD_TYPE, MessageType.CALL_ENDED)
             .toString()
@@ -167,18 +196,25 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
     }
 
     // --- Bluetooth audio routing ---
-
-    private fun routeAudioToMac() {
-        val audioManager = getSystemService(AudioManager::class.java)
-        Log.d(TAG, "BT SCO available off-call: ${audioManager.isBluetoothScoAvailableOffCall}")
-        audioManager.startBluetoothSco()
-        Log.d(TAG, "BT SCO started")
-    }
-
-    private fun stopBluetoothAudio() {
-        getSystemService(AudioManager::class.java).stopBluetoothSco()
-        Log.d(TAG, "BT SCO stopped")
-    }
+    //
+    // startBluetoothSco()/stopBluetoothSco() used to be called unconditionally
+    // on every CALL_ACTIVE/CALL_ENDED to hand call audio off to the Ubuntu/Mac
+    // client over Bluetooth HFP. Removed entirely (2026-07-11): live logcat
+    // during a real call showed the Bluetooth handoff NEVER actually completes
+    // (isBluetoothScoOn stays false, activeBluetoothDevice stays null - see
+    // linux/README.md's known BlueZ/PipeWire "audio-gateway" transport bug),
+    // yet calling startBluetoothSco() still flips AudioManager's mode to
+    // MODE_IN_COMMUNICATION and re-requests the audio focus/session, which
+    // stomps on whatever echo-cancellation/audio session the actual calling
+    // app (dialer or a VoIP app like WhatsApp) had already set up. That
+    // session disruption - not any Bluetooth/PC audio path - is what was
+    // producing the "the other person hears themselves echoed" reports,
+    // confirmed via [audio-diag] logs showing SCO requested twice per call
+    // with isBluetoothScoOn never turning true. Since the feature never once
+    // worked end-to-end, removing the calls entirely (rather than guarding
+    // them) is the safe fix until the underlying BlueZ/PipeWire bug is fixed
+    // upstream - re-add only once routing has been confirmed to actually
+    // succeed on a real device.
 
     // --- Call control ---
 
@@ -217,6 +253,12 @@ class CallService : Service(), WebSocketCallback, CallEventListener {
             val extras = android.os.Bundle()
             telecomManager.placeCall(uri, extras)
         }.onFailure { Log.e(TAG, "Failed to place outgoing call: ${it.message}") }
+    }
+
+    private fun setMicMuted(muted: Boolean) {
+        runCatching {
+            getSystemService(AudioManager::class.java).isMicrophoneMute = muted
+        }.onFailure { Log.e(TAG, "Failed to set mic mute: ${it.message}") }
     }
 
     // --- Contacts CRUD ---

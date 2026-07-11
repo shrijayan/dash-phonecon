@@ -38,6 +38,10 @@ struct MenuBarView: View {
                 ActiveCallTimerView(startTime: startTime)
             }
 
+            Button(viewModel.isMuted ? "Unmute" : "Mute") {
+                viewModel.toggleMute()
+            }
+
             Button("Hang Up") {
                 viewModel.sendCommand(.hangup)
             }
