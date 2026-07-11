@@ -2,6 +2,11 @@
 
 All notable changes to dash-phonecon are documented here, auto-generated from Conventional Commit messages on every release.
 
+## v1.3.0 - 2026-07-11
+
+### Features
+- live in-call bar with mute/hangup + Ubuntu-native floating overlay
+
 ## v1.2.0 - 2026-07-10
 
 ### Features
